@@ -130,13 +130,14 @@ const Carousel = ({ items, speed }: { items: CarouselItem[], speed: number }) =>
   // Calculate duration: speed 10 (slow) -> 120s, speed 100 (fast) -> 20s
   const duration = 130 - speed;
 
-  // To ensure a perfect infinite loop, we duplicate the items
-  // We need enough items to fill the screen twice
-  const duplicatedItems = [...items, ...items, ...items, ...items];
+  // Ensure we have enough items for a smooth loop regardless of list size
+  // We repeat the list multiple times to ensure it's wider than any screen
+  const duplicatedItems = [...items, ...items, ...items, ...items, ...items, ...items];
 
   return (
     <div className="w-full overflow-hidden bg-white/30 backdrop-blur-md py-0.5 border-t border-white/20">
       <motion.div 
+        initial={{ x: '-50%' }}
         animate={{ x: ['-50%', '0%'] }}
         transition={{ 
           duration: duration, 
@@ -157,7 +158,6 @@ const Carousel = ({ items, speed }: { items: CarouselItem[], speed: number }) =>
                 color: '#fff'
               }}
             >
-              {/* Decorative Background Shapes */}
               <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none">
                 <div 
                   className="absolute top-0 right-0 w-8 h-8 bg-white/10" 
@@ -1113,9 +1113,11 @@ export default function App() {
         )}
       </AnimatePresence>
 
-      <div className="fixed bottom-[48px] left-0 w-full z-[60]">
-        <Carousel items={allCarouselItems} speed={settings.carouselSpeed} />
-      </div>
+      {activeTab !== 'settings' && (
+        <div className="fixed bottom-[48px] left-0 w-full z-[60]">
+          <Carousel items={allCarouselItems} speed={settings.carouselSpeed} />
+        </div>
+      )}
     </div>
   );
 }
