@@ -118,17 +118,36 @@ const Login = ({ onLogin, theme }: { onLogin: () => void, theme: Theme }) => {
 const Carousel = ({ items }: { items: CarouselItem[] }) => {
   if (items.length === 0) return null;
 
+  const colors = ['#f43f5e', '#8b5cf6', '#0ea5e9', '#10b981', '#f59e0b', '#ec4899'];
+
   return (
-    <div className="w-full overflow-hidden bg-white/50 backdrop-blur-sm py-3 border-t border-slate-100">
+    <div className="w-full overflow-hidden bg-white/30 backdrop-blur-md py-4 border-t border-white/20">
       <motion.div 
-        animate={{ x: [-1000, 0] }}
-        transition={{ duration: 30, repeat: Infinity, ease: "linear" }}
-        className="flex gap-8 whitespace-nowrap px-4"
+        animate={{ x: [-2000, 0] }}
+        transition={{ duration: 40, repeat: Infinity, ease: "linear" }}
+        className="flex gap-6 whitespace-nowrap px-4"
       >
-        {[...items, ...items].map((item, idx) => (
-          <div key={`${item.id}-${idx}`} className="flex items-center gap-3 bg-white px-4 py-2 rounded-xl shadow-sm border border-slate-100">
-            {item.imageUrl && <img src={item.imageUrl} alt="" className="w-8 h-8 rounded-lg object-cover" />}
-            <span className="text-sm font-medium text-slate-700">{item.text}</span>
+        {[...items, ...items, ...items].map((item, idx) => (
+          <div 
+            key={`${item.id}-${idx}`} 
+            className="relative flex items-center gap-3 px-6 py-3 rounded-2xl shadow-lg border-b-2 overflow-hidden glow-border"
+            style={{ 
+              background: `linear-gradient(135deg, ${colors[idx % colors.length]} 0%, ${colors[idx % colors.length]}dd 100%)`,
+              borderColor: 'rgba(255,255,255,0.2)',
+              color: '#fff'
+            }}
+          >
+            {/* Decorative Background Shapes */}
+            <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none">
+              <div 
+                className="absolute top-0 right-0 w-12 h-12 bg-white/10" 
+                style={{ clipPath: 'polygon(100% 0, 0 0, 100% 100%)' }}
+              />
+              <div className="absolute -bottom-2 -left-2 w-8 h-8 rounded-full bg-white/10 backdrop-blur-sm" />
+            </div>
+
+            {item.imageUrl && <img src={item.imageUrl} alt="" className="w-8 h-8 rounded-lg object-cover relative z-10" />}
+            <span className="text-sm font-bold relative z-10 drop-shadow-sm">{item.text}</span>
           </div>
         ))}
       </motion.div>
@@ -139,10 +158,10 @@ const Carousel = ({ items }: { items: CarouselItem[] }) => {
 function ContentCard({ item, onClick, onToggleFavorite }: { item: ContentItem, onClick: () => void, onToggleFavorite: (id: string) => void }) {
   return (
     <motion.div
-      whileHover={{ scale: 1.02, y: -4 }}
+      whileHover={{ scale: 1.02, y: -2 }}
       whileTap={{ scale: 0.98 }}
       onClick={onClick}
-      className="relative w-full p-5 rounded-2xl text-right flex flex-col justify-between h-28 shadow-xl border-b-4 transition-all overflow-hidden group cursor-pointer mb-3 glow-border"
+      className="relative w-full p-3 rounded-xl text-right flex flex-col justify-center h-16 shadow-lg border-b-2 transition-all overflow-hidden group cursor-pointer mb-2 glow-border"
       style={{ 
         background: `linear-gradient(135deg, ${item.color} 0%, ${item.color}dd 100%)`, 
         borderColor: 'rgba(255,255,255,0.2)',
@@ -153,31 +172,29 @@ function ContentCard({ item, onClick, onToggleFavorite }: { item: ContentItem, o
       <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none">
         {/* Triangle Shape */}
         <div 
-          className="absolute top-0 right-0 w-32 h-32 bg-white/10" 
+          className="absolute top-0 right-0 w-16 h-16 bg-white/10" 
           style={{ clipPath: 'polygon(100% 0, 0 0, 100% 100%)' }}
         />
         {/* Circle Shape */}
-        <div className="absolute -bottom-6 -left-6 w-20 h-20 rounded-full bg-white/10 backdrop-blur-sm" />
-        
-        <div className="absolute top-1/4 left-10 w-12 h-12 rotate-12 border border-white/5" />
-        <div className="absolute bottom-4 right-1/3 w-8 h-8 rounded-full border border-white/10" />
+        <div className="absolute -bottom-3 -left-3 w-10 h-10 rounded-full bg-white/10 backdrop-blur-sm" />
       </div>
 
       <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-br from-white/20 to-transparent pointer-events-none" />
       
-      <div className="flex justify-between items-start w-full relative z-10">
-        <div className="p-2.5 bg-white/20 rounded-xl backdrop-blur-md border border-white/20 shadow-inner">
-          {item.type === 'link' ? <ExternalLink className="w-5 h-5" /> : <FileText className="w-5 h-5" />}
+      <div className="flex justify-between items-center w-full relative z-10 gap-3">
+        <div className="flex items-center gap-3 flex-1 min-w-0">
+          <div className="p-1.5 bg-white/20 rounded-lg backdrop-blur-md border border-white/20 shadow-inner shrink-0">
+            {item.type === 'link' ? <ExternalLink className="w-4 h-4" /> : <FileText className="w-4 h-4" />}
+          </div>
+          <h3 className="text-sm font-bold leading-tight drop-shadow-md font-display truncate">{item.title}</h3>
         </div>
         <button 
           onClick={(e) => { e.stopPropagation(); onToggleFavorite(item.id); }}
-          className="p-2.5 hover:bg-white/30 rounded-full transition-colors backdrop-blur-md border border-white/10"
+          className="p-1.5 hover:bg-white/30 rounded-full transition-colors backdrop-blur-md border border-white/10 shrink-0"
         >
-          <Heart className={`w-5 h-5 ${item.isFavorite ? 'fill-white' : ''}`} />
+          <Heart className={`w-4 h-4 ${item.isFavorite ? 'fill-white' : ''}`} />
         </button>
       </div>
-
-      <h3 className="text-xl font-bold leading-tight drop-shadow-md z-10 relative font-display">{item.title}</h3>
     </motion.div>
   );
 }
@@ -233,7 +250,11 @@ export default function App() {
 
   const handleItemClick = (item: ContentItem) => {
     setRecentIds(prev => [item.id, ...prev.filter(id => id !== item.id)].slice(0, 10));
-    setViewingItem(item);
+    if (item.type === 'link') {
+      window.open(item.url, '_blank');
+    } else {
+      setViewingItem(item);
+    }
   };
 
   const toggleFavorite = (id: string) => {
@@ -381,27 +402,27 @@ export default function App() {
 
         {/* Categories Grid */}
         {activeTab === 'home' && (
-          <div className="grid grid-cols-1 gap-4">
+          <div className="grid grid-cols-1 gap-3">
             {activeCategories.map(cat => (
               <motion.button
                 key={cat.id}
-                whileHover={{ scale: 1.02, y: -4 }}
+                whileHover={{ scale: 1.02, y: -2 }}
                 whileTap={{ scale: 0.98 }}
                 onClick={() => setCurrentCategory(cat.id)}
-                className="relative w-full p-6 rounded-3xl text-center shadow-2xl border-b-8 transition-all overflow-hidden glow-border"
+                className="relative w-full p-4 rounded-2xl text-center shadow-xl border-b-4 transition-all overflow-hidden glow-border"
                 style={{ backgroundColor: cat.color, color: '#fff', borderColor: 'rgba(0,0,0,0.2)' }}
               >
                 <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none">
                   {/* Triangle Shape */}
                   <div 
-                    className="absolute top-0 right-0 w-40 h-40 bg-white/10" 
+                    className="absolute top-0 right-0 w-24 h-24 bg-white/10" 
                     style={{ clipPath: 'polygon(100% 0, 0 0, 100% 100%)' }}
                   />
                   {/* Circle Shape */}
-                  <div className="absolute -bottom-10 -left-10 w-32 h-32 rounded-full bg-white/10" />
+                  <div className="absolute -bottom-5 -left-5 w-16 h-16 rounded-full bg-white/10" />
                 </div>
                 <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-br from-white/20 to-transparent pointer-events-none" />
-                <span className="font-display font-bold text-2xl relative z-10">{cat.name}</span>
+                <span className="font-display font-bold text-lg relative z-10">{cat.name}</span>
               </motion.button>
             ))}
           </div>
