@@ -25,12 +25,12 @@ import {
   Languages,
   ArrowRight
 } from 'lucide-react';
-import { LOGIN_PHRASE, WELCOME_MESSAGE, FOOTER_INFO, CONTACT_PHONE, WHATSAPP_LINK, DEFAULT_CATEGORIES, DEFAULT_ITEMS } from './constants';
-import { Category, ContentItem, AppSettings, CarouselItem } from './types';
+import { LOGIN_PHRASE, WELCOME_MESSAGE, FOOTER_INFO, CONTACT_PHONE, WHATSAPP_LINK, DEFAULT_CATEGORIES, DEFAULT_ITEMS, THEMES } from './constants';
+import { Category, ContentItem, AppSettings, CarouselItem, Theme } from './types';
 
 // --- Components ---
 
-const Login = ({ onLogin }: { onLogin: () => void }) => {
+const Login = ({ onLogin, theme }: { onLogin: () => void, theme: Theme }) => {
   const [input, setInput] = useState('');
   const [copied, setCopied] = useState(false);
 
@@ -50,18 +50,18 @@ const Login = ({ onLogin }: { onLogin: () => void }) => {
   };
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center p-6 bg-gradient-to-br from-emerald-50 to-teal-100 text-slate-800">
+    <div className="min-h-screen flex flex-col items-center justify-center p-6 text-slate-800" style={{ background: theme.background }}>
       <motion.div 
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="w-full max-w-md bg-white rounded-3xl shadow-2xl p-8 border border-white/50"
+        className="w-full max-w-md bg-white/90 backdrop-blur-xl rounded-3xl shadow-2xl p-8 border border-white/50"
       >
         <div className="text-center mb-8">
-          <div className="w-20 h-20 bg-emerald-600 rounded-2xl mx-auto flex items-center justify-center shadow-lg mb-4">
+          <div className="w-20 h-20 rounded-2xl mx-auto flex items-center justify-center shadow-lg mb-4" style={{ backgroundColor: theme.primary }}>
             <Home className="text-white w-10 h-10" />
           </div>
-          <h1 className="text-2xl font-bold text-emerald-800 mb-2">رفيق المسلم</h1>
-          <p className="text-sm text-slate-600 leading-relaxed">
+          <h1 className="text-4xl font-serif font-bold mb-2" style={{ color: theme.secondary }}>رفيق المسلم</h1>
+          <p className="text-sm text-slate-600 leading-relaxed font-medium">
             {WELCOME_MESSAGE}
           </p>
         </div>
@@ -139,41 +139,45 @@ const Carousel = ({ items }: { items: CarouselItem[] }) => {
 function ContentCard({ item, onClick, onToggleFavorite }: { item: ContentItem, onClick: () => void, onToggleFavorite: (id: string) => void }) {
   return (
     <motion.div
-      whileHover={{ scale: 1.01, y: -2 }}
-      whileTap={{ scale: 0.99 }}
+      whileHover={{ scale: 1.02, y: -4 }}
+      whileTap={{ scale: 0.98 }}
       onClick={onClick}
-      className="relative w-full p-4 rounded-2xl text-right flex flex-col justify-between h-24 shadow-xl border-b-4 transition-all overflow-hidden group cursor-pointer mb-2"
+      className="relative w-full p-5 rounded-2xl text-right flex flex-col justify-between h-28 shadow-xl border-b-4 transition-all overflow-hidden group cursor-pointer mb-3 glow-border"
       style={{ 
-        backgroundColor: item.color, 
-        borderColor: 'rgba(0,0,0,0.2)',
+        background: `linear-gradient(135deg, ${item.color} 0%, ${item.color}dd 100%)`, 
+        borderColor: 'rgba(255,255,255,0.2)',
         color: '#fff'
       }}
     >
       {/* Decorative Background Shapes */}
-      <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none opacity-30">
-        <div className="absolute -top-6 -left-6 w-32 h-32 rounded-full bg-white/20 blur-2xl" />
-        <div className="absolute top-1/4 right-10 w-20 h-20 rotate-45 border border-white/10" />
-        <div className="absolute bottom-2 left-1/3 w-12 h-12 rounded-full border-2 border-white/5" />
-        <div className="absolute -bottom-10 -right-10 w-40 h-40 rounded-full bg-black/5 blur-3xl" />
-        <div className="absolute top-1/2 right-1/4 w-16 h-1 bg-white/10 -rotate-12" />
-        <div className="absolute top-2 left-1/2 w-1 h-16 bg-white/10 rotate-45" />
+      <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none">
+        {/* Triangle Shape */}
+        <div 
+          className="absolute top-0 right-0 w-32 h-32 bg-white/10" 
+          style={{ clipPath: 'polygon(100% 0, 0 0, 100% 100%)' }}
+        />
+        {/* Circle Shape */}
+        <div className="absolute -bottom-6 -left-6 w-20 h-20 rounded-full bg-white/10 backdrop-blur-sm" />
+        
+        <div className="absolute top-1/4 left-10 w-12 h-12 rotate-12 border border-white/5" />
+        <div className="absolute bottom-4 right-1/3 w-8 h-8 rounded-full border border-white/10" />
       </div>
 
       <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-br from-white/20 to-transparent pointer-events-none" />
       
       <div className="flex justify-between items-start w-full relative z-10">
-        <div className="p-2 bg-white/20 rounded-xl backdrop-blur-md border border-white/10 shadow-sm">
+        <div className="p-2.5 bg-white/20 rounded-xl backdrop-blur-md border border-white/20 shadow-inner">
           {item.type === 'link' ? <ExternalLink className="w-5 h-5" /> : <FileText className="w-5 h-5" />}
         </div>
         <button 
           onClick={(e) => { e.stopPropagation(); onToggleFavorite(item.id); }}
-          className="p-2 hover:bg-white/30 rounded-full transition-colors backdrop-blur-sm"
+          className="p-2.5 hover:bg-white/30 rounded-full transition-colors backdrop-blur-md border border-white/10"
         >
           <Heart className={`w-5 h-5 ${item.isFavorite ? 'fill-white' : ''}`} />
         </button>
       </div>
 
-      <h3 className="text-xl font-bold leading-tight drop-shadow-lg z-10 relative">{item.title}</h3>
+      <h3 className="text-xl font-bold leading-tight drop-shadow-md z-10 relative font-display">{item.title}</h3>
     </motion.div>
   );
 }
@@ -202,7 +206,7 @@ export default function App() {
     const saved = localStorage.getItem('settings');
     return saved ? JSON.parse(saved) : {
       language: 'ar',
-      theme: 'light',
+      themeId: 'modern-emerald',
       carouselItems: [
         { id: '1', text: 'اللهم صل وسلم على نبينا محمد' },
         { id: '2', text: 'سبحان الله وبحمده سبحان الله العظيم' },
@@ -210,6 +214,8 @@ export default function App() {
       ]
     };
   });
+
+  const currentTheme = useMemo(() => THEMES.find(t => t.id === settings.themeId) || THEMES[0], [settings.themeId]);
 
   const [viewingItem, setViewingItem] = useState<ContentItem | null>(null);
   const [currentCategory, setCurrentCategory] = useState<string | null>(null);
@@ -237,7 +243,10 @@ export default function App() {
   const filteredItems = useMemo(() => {
     if (activeTab === 'favorites') return items.filter(i => i.isFavorite);
     if (activeTab === 'recent') return recentIds.map(id => items.find(i => i.id === id)).filter(Boolean) as ContentItem[];
-    if (currentCategory) return items.filter(i => i.categoryId === currentCategory);
+    if (activeTab === 'home') {
+      if (!currentCategory) return []; // Don't show links on home screen, only categories
+      return items.filter(i => i.categoryId === currentCategory);
+    }
     return items;
   }, [activeTab, items, recentIds, currentCategory]);
 
@@ -245,7 +254,7 @@ export default function App() {
     return categories.filter(c => c.parentId === currentCategory);
   }, [categories, currentCategory]);
 
-  if (!isLoggedIn) return <Login onLogin={handleLogin} />;
+  if (!isLoggedIn) return <Login onLogin={handleLogin} theme={currentTheme} />;
 
   if (viewingItem) {
     return (
@@ -330,21 +339,21 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col pb-32">
+    <div className="min-h-screen flex flex-col pb-32 transition-all duration-500" style={{ background: currentTheme.background }}>
       {/* Header */}
-      <header className="sticky top-0 z-30 bg-white/80 backdrop-blur-md border-b border-slate-200 px-6 py-4 flex items-center justify-between">
+      <header className="sticky top-0 z-30 bg-white/60 backdrop-blur-xl border-b border-white/20 px-6 py-4 flex items-center justify-between shadow-sm">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 bg-emerald-600 rounded-xl flex items-center justify-center shadow-md">
+          <div className="w-10 h-10 rounded-xl flex items-center justify-center shadow-lg" style={{ backgroundColor: currentTheme.primary }}>
             <Home className="text-white w-6 h-6" />
           </div>
-          <h1 className="text-xl font-bold text-emerald-800">رفيق المسلم</h1>
+          <h1 className="text-3xl font-serif font-bold" style={{ color: currentTheme.secondary }}>رفيق المسلم</h1>
         </div>
         <div className="flex items-center gap-2">
-          <button className="p-2 hover:bg-slate-100 rounded-full transition-colors">
-            <Languages className="w-5 h-5 text-slate-500" />
-          </button>
-          <button className="p-2 hover:bg-slate-100 rounded-full transition-colors">
-            <Menu className="w-5 h-5 text-slate-500" />
+          <button 
+            onClick={() => setActiveTab('settings')}
+            className="p-2 hover:bg-white/30 rounded-full transition-colors backdrop-blur-md border border-white/10"
+          >
+            <SettingsIcon className="w-5 h-5 text-slate-600" />
           </button>
         </div>
       </header>
@@ -352,33 +361,47 @@ export default function App() {
       {/* Main Content */}
       <main className="flex-1 p-6 space-y-8">
         {/* Breadcrumbs / Back button if in category */}
-        {currentCategory && (
-          <button 
-            onClick={() => {
-              const cat = categories.find(c => c.id === currentCategory);
-              setCurrentCategory(cat?.parentId || null);
-            }}
-            className="flex items-center gap-2 text-emerald-600 font-bold"
-          >
-            <ArrowRight className="w-5 h-5" />
-            العودة
-          </button>
+        {activeTab === 'home' && currentCategory && (
+          <div className="flex items-center justify-between mb-4">
+            <button 
+              onClick={() => {
+                const cat = categories.find(c => c.id === currentCategory);
+                setCurrentCategory(cat?.parentId || null);
+              }}
+              className="flex items-center gap-2 text-slate-600 font-bold bg-white/40 backdrop-blur-md px-4 py-2 rounded-xl border border-white/20 shadow-sm"
+            >
+              <ArrowRight className="w-5 h-5" />
+              <span>العودة</span>
+            </button>
+            <h2 className="text-xl font-display font-bold" style={{ color: currentTheme.secondary }}>
+              {categories.find(c => c.id === currentCategory)?.name}
+            </h2>
+          </div>
         )}
 
         {/* Categories Grid */}
-        {activeTab === 'home' && activeCategories.length > 0 && (
-          <div className="grid grid-cols-1 gap-3">
+        {activeTab === 'home' && (
+          <div className="grid grid-cols-1 gap-4">
             {activeCategories.map(cat => (
               <motion.button
                 key={cat.id}
-                whileHover={{ scale: 1.01, y: -2 }}
-                whileTap={{ scale: 0.99 }}
+                whileHover={{ scale: 1.02, y: -4 }}
+                whileTap={{ scale: 0.98 }}
                 onClick={() => setCurrentCategory(cat.id)}
-                className="relative w-full p-4 rounded-2xl text-center shadow-xl border-b-4 transition-all overflow-hidden"
+                className="relative w-full p-6 rounded-3xl text-center shadow-2xl border-b-8 transition-all overflow-hidden glow-border"
                 style={{ backgroundColor: cat.color, color: '#fff', borderColor: 'rgba(0,0,0,0.2)' }}
               >
+                <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none">
+                  {/* Triangle Shape */}
+                  <div 
+                    className="absolute top-0 right-0 w-40 h-40 bg-white/10" 
+                    style={{ clipPath: 'polygon(100% 0, 0 0, 100% 100%)' }}
+                  />
+                  {/* Circle Shape */}
+                  <div className="absolute -bottom-10 -left-10 w-32 h-32 rounded-full bg-white/10" />
+                </div>
                 <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-br from-white/20 to-transparent pointer-events-none" />
-                <span className="font-bold text-xl relative z-10">{cat.name}</span>
+                <span className="font-display font-bold text-2xl relative z-10">{cat.name}</span>
               </motion.button>
             ))}
           </div>
@@ -395,9 +418,10 @@ export default function App() {
               />
             </div>
           ))}
-          {filteredItems.length === 0 && (
-            <div className="col-span-full py-20 text-center text-slate-400">
-              <p>لا يوجد محتوى هنا بعد...</p>
+          {activeTab === 'home' && currentCategory && filteredItems.length === 0 && activeCategories.length === 0 && (
+            <div className="col-span-full py-20 text-center bg-white/20 backdrop-blur-md rounded-3xl border border-white/10">
+              <Plus className="w-12 h-12 text-slate-300 mx-auto mb-4" />
+              <p className="text-slate-500 font-medium">لا يوجد محتوى في هذا القسم بعد...</p>
             </div>
           )}
         </div>
@@ -410,7 +434,8 @@ export default function App() {
         <nav className="bg-white border-t border-slate-200 px-6 py-3 flex items-center justify-between">
           <button 
             onClick={() => { setActiveTab('home'); setCurrentCategory(null); }}
-            className={`flex flex-col items-center gap-1 transition-colors ${activeTab === 'home' ? 'text-emerald-600' : 'text-slate-400'}`}
+            className={`flex flex-col items-center gap-1 transition-colors ${activeTab === 'home' ? '' : 'text-slate-400'}`}
+            style={{ color: activeTab === 'home' ? currentTheme.primary : undefined }}
           >
             <Home className="w-6 h-6" />
             <span className="text-[10px] font-bold">الرئيسية</span>
@@ -418,7 +443,8 @@ export default function App() {
           
           <button 
             onClick={() => setActiveTab('recent')}
-            className={`flex flex-col items-center gap-1 transition-colors ${activeTab === 'recent' ? 'text-emerald-600' : 'text-slate-400'}`}
+            className={`flex flex-col items-center gap-1 transition-colors ${activeTab === 'recent' ? '' : 'text-slate-400'}`}
+            style={{ color: activeTab === 'recent' ? currentTheme.primary : undefined }}
           >
             <History className="w-6 h-6" />
             <span className="text-[10px] font-bold">الأخيرة</span>
@@ -438,7 +464,8 @@ export default function App() {
 
           <button 
             onClick={() => setActiveTab('favorites')}
-            className={`flex flex-col items-center gap-1 transition-colors ${activeTab === 'favorites' ? 'text-emerald-600' : 'text-slate-400'}`}
+            className={`flex flex-col items-center gap-1 transition-colors ${activeTab === 'favorites' ? '' : 'text-slate-400'}`}
+            style={{ color: activeTab === 'favorites' ? currentTheme.primary : undefined }}
           >
             <Heart className="w-6 h-6" />
             <span className="text-[10px] font-bold">المفضلة</span>
@@ -446,7 +473,8 @@ export default function App() {
 
           <button 
             onClick={() => setActiveTab('settings')}
-            className={`flex flex-col items-center gap-1 transition-colors ${activeTab === 'settings' ? 'text-emerald-600' : 'text-slate-400'}`}
+            className={`flex flex-col items-center gap-1 transition-colors ${activeTab === 'settings' ? '' : 'text-slate-400'}`}
+            style={{ color: activeTab === 'settings' ? currentTheme.primary : undefined }}
           >
             <SettingsIcon className="w-6 h-6" />
             <span className="text-[10px] font-bold">الإعدادات</span>
@@ -519,6 +547,27 @@ export default function App() {
             </div>
 
             <div className="space-y-8">
+              {/* Theme Selection */}
+              <section>
+                <h3 className="text-lg font-display font-bold mb-4 flex items-center gap-2">
+                  <Languages className="w-5 h-5" style={{ color: currentTheme.primary }} />
+                  مظهر البرنامج (الثيمات)
+                </h3>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                  {THEMES.map(theme => (
+                    <button
+                      key={theme.id}
+                      onClick={() => setSettings(s => ({ ...s, themeId: theme.id }))}
+                      className={`p-3 rounded-2xl border-2 transition-all text-center ${settings.themeId === theme.id ? 'border-emerald-500 shadow-lg scale-105' : 'border-slate-100'}`}
+                      style={{ background: theme.background }}
+                    >
+                      <div className="w-8 h-8 rounded-full mx-auto mb-2 shadow-inner" style={{ backgroundColor: theme.primary }} />
+                      <span className="text-[10px] font-bold text-slate-700">{theme.name}</span>
+                    </button>
+                  ))}
+                </div>
+              </section>
+
               {/* Carousel Management */}
               <section>
                 <h3 className="text-lg font-bold mb-4 flex items-center gap-2">

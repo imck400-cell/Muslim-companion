@@ -25,8 +25,18 @@ export interface CarouselItem {
   imageUrl?: string;
 }
 
+export interface Theme {
+  id: string;
+  name: string;
+  primary: string;
+  secondary: string;
+  background: string;
+  cardGradient: string;
+  accent: string;
+}
+
 export interface AppSettings {
   language: 'ar' | 'en';
-  theme: 'light' | 'dark';
+  themeId: string;
   carouselItems: CarouselItem[];
 }
