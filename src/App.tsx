@@ -16,6 +16,8 @@ import {
   Phone, 
   MessageCircle, 
   ChevronLeft, 
+  ChevronDown,
+  ChevronUp,
   ExternalLink, 
   FileText,
   Trash2,
@@ -125,12 +127,12 @@ const Carousel = ({ items }: { items: CarouselItem[] }) => {
       <motion.div 
         animate={{ x: [-2000, 0] }}
         transition={{ duration: 40, repeat: Infinity, ease: "linear" }}
-        className="flex gap-6 whitespace-nowrap px-4"
+        className="flex gap-6 whitespace-nowrap px-4 w-max"
       >
-        {[...items, ...items, ...items].map((item, idx) => (
+        {[...items, ...items, ...items, ...items].map((item, idx) => (
           <div 
             key={`${item.id}-${idx}`} 
-            className="relative flex items-center gap-3 px-6 py-3 rounded-2xl shadow-lg border-b-2 overflow-hidden glow-border"
+            className="relative flex items-center gap-3 px-6 py-3 rounded-2xl shadow-lg border-b-2 overflow-hidden glow-border shrink-0"
             style={{ 
               background: `linear-gradient(135deg, ${colors[idx % colors.length]} 0%, ${colors[idx % colors.length]}dd 100%)`,
               borderColor: 'rgba(255,255,255,0.2)',
@@ -147,7 +149,7 @@ const Carousel = ({ items }: { items: CarouselItem[] }) => {
             </div>
 
             {item.imageUrl && <img src={item.imageUrl} alt="" className="w-8 h-8 rounded-lg object-cover relative z-10" />}
-            <span className="text-sm font-bold relative z-10 drop-shadow-sm">{item.text}</span>
+            <span className="text-sm font-bold relative z-10 drop-shadow-sm whitespace-nowrap">{item.text}</span>
           </div>
         ))}
       </motion.div>
@@ -236,6 +238,8 @@ export default function App() {
 
   const [viewingItem, setViewingItem] = useState<ContentItem | null>(null);
   const [currentCategory, setCurrentCategory] = useState<string | null>(null);
+  const [isThemesCollapsed, setIsThemesCollapsed] = useState(true);
+  const [targetCategoryId, setTargetCategoryId] = useState<string>('cat-default');
 
   // Persistence
   useEffect(() => {
@@ -569,24 +573,42 @@ export default function App() {
 
             <div className="space-y-8">
               {/* Theme Selection */}
-              <section>
-                <h3 className="text-lg font-display font-bold mb-4 flex items-center gap-2">
-                  <Languages className="w-5 h-5" style={{ color: currentTheme.primary }} />
-                  مظهر البرنامج (الثيمات)
-                </h3>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                  {THEMES.map(theme => (
-                    <button
-                      key={theme.id}
-                      onClick={() => setSettings(s => ({ ...s, themeId: theme.id }))}
-                      className={`p-3 rounded-2xl border-2 transition-all text-center ${settings.themeId === theme.id ? 'border-emerald-500 shadow-lg scale-105' : 'border-slate-100'}`}
-                      style={{ background: theme.background }}
+              <section className="bg-white/40 backdrop-blur-md p-4 rounded-3xl border border-white/20 shadow-sm">
+                <button 
+                  onClick={() => setIsThemesCollapsed(!isThemesCollapsed)}
+                  className="w-full flex items-center justify-between mb-2"
+                >
+                  <h3 className="text-lg font-display font-bold flex items-center gap-2">
+                    <Languages className="w-5 h-5" style={{ color: currentTheme.primary }} />
+                    مظهر البرنامج (الثيمات)
+                  </h3>
+                  {isThemesCollapsed ? <ChevronDown className="w-5 h-5 text-slate-400" /> : <ChevronUp className="w-5 h-5 text-slate-400" />}
+                </button>
+                
+                <AnimatePresence>
+                  {!isThemesCollapsed && (
+                    <motion.div 
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: 'auto', opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      className="overflow-hidden"
                     >
-                      <div className="w-8 h-8 rounded-full mx-auto mb-2 shadow-inner" style={{ backgroundColor: theme.primary }} />
-                      <span className="text-[10px] font-bold text-slate-700">{theme.name}</span>
-                    </button>
-                  ))}
-                </div>
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-4">
+                        {THEMES.map(theme => (
+                          <button
+                            key={theme.id}
+                            onClick={() => setSettings(s => ({ ...s, themeId: theme.id }))}
+                            className={`p-3 rounded-2xl border-2 transition-all text-center ${settings.themeId === theme.id ? 'border-emerald-500 shadow-lg scale-105' : 'border-slate-100'}`}
+                            style={{ background: theme.background }}
+                          >
+                            <div className="w-8 h-8 rounded-full mx-auto mb-2 shadow-inner" style={{ backgroundColor: theme.primary }} />
+                            <span className="text-[10px] font-bold text-slate-700">{theme.name}</span>
+                          </button>
+                        ))}
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
               </section>
 
               {/* Carousel Management */}
@@ -687,6 +709,16 @@ export default function App() {
                         <option value="link">رابط ويب</option>
                         <option value="pdf">ملف PDF</option>
                       </select>
+
+                      <select 
+                        value={targetCategoryId}
+                        onChange={(e) => setTargetCategoryId(e.target.value)}
+                        className="flex-1 p-2 bg-white border rounded-lg text-sm"
+                      >
+                        {categories.map(cat => (
+                          <option key={cat.id} value={cat.id}>{cat.name}</option>
+                        ))}
+                      </select>
                     </div>
 
                     {newItemType === 'link' ? (
@@ -737,7 +769,7 @@ export default function App() {
                           url,
                           type: newItemType,
                           color: '#' + Math.floor(Math.random()*16777215).toString(16),
-                          categoryId: currentCategory || 'cat-default',
+                          categoryId: targetCategoryId,
                           createdAt: Date.now(),
                           isFavorite: false
                         };
