@@ -249,22 +249,63 @@ export default function App() {
     return (
       <div className="fixed inset-0 bg-white z-50 flex flex-col">
         <div className="p-4 flex items-center justify-between border-b bg-white shadow-sm">
-          <button 
-            onClick={() => setViewingItem(null)}
-            className="p-2 bg-slate-100 rounded-full hover:bg-slate-200 transition-colors"
-          >
-            <ArrowRight className="w-6 h-6 text-slate-700" />
-          </button>
-          <h2 className="font-bold text-slate-800 truncate px-4">{viewingItem.title}</h2>
-          <div className="w-10" /> {/* Spacer */}
+          <div className="flex items-center gap-2">
+            <button 
+              onClick={() => setViewingItem(null)}
+              className="p-2 bg-slate-100 rounded-full hover:bg-slate-200 transition-colors"
+            >
+              <ArrowRight className="w-6 h-6 text-slate-700" />
+            </button>
+            <h2 className="font-bold text-slate-800 truncate max-w-[150px] sm:max-w-xs">{viewingItem.title}</h2>
+          </div>
+          
+          <div className="flex items-center gap-2">
+            <button 
+              onClick={() => {
+                navigator.clipboard.writeText(viewingItem.url);
+                alert('تم نسخ الرابط بنجاح');
+              }}
+              className="p-2 bg-slate-100 rounded-full hover:bg-slate-200 transition-colors"
+              title="نسخ الرابط"
+            >
+              <Copy className="w-5 h-5 text-slate-600" />
+            </button>
+            <button 
+              onClick={() => {
+                const iframe = document.querySelector('iframe');
+                if (iframe) iframe.src = iframe.src;
+              }}
+              className="p-2 bg-slate-100 rounded-full hover:bg-slate-200 transition-colors"
+              title="تحديث"
+            >
+              <History className="w-5 h-5 text-slate-600" />
+            </button>
+            <a 
+              href={viewingItem.url} 
+              target="_blank" 
+              rel="noreferrer"
+              className="flex items-center gap-2 px-3 py-2 bg-emerald-600 text-white rounded-xl text-xs font-bold hover:bg-emerald-700 transition-shadow shadow-md"
+            >
+              <ExternalLink className="w-4 h-4" />
+              <span>فتح في نافذة جديدة</span>
+            </a>
+          </div>
         </div>
-        <div className="flex-1 overflow-hidden relative">
+        <div className="flex-1 overflow-hidden relative bg-slate-50">
           {viewingItem.type === 'link' ? (
-            <iframe 
-              src={viewingItem.url} 
-              className="w-full h-full border-none" 
-              title={viewingItem.title}
-            />
+            <div className="w-full h-full relative">
+              <iframe 
+                src={viewingItem.url} 
+                className="w-full h-full border-none" 
+                title={viewingItem.title}
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share; geolocation; microphone; camera"
+                allowFullScreen
+              />
+              {/* Optional: Overlay message if iframe might be blocked */}
+              <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-0 hover:opacity-100 transition-opacity bg-white/10">
+                <p className="bg-black/60 text-white px-4 py-2 rounded-full text-xs">إذا لم يظهر المحتوى، اضغط على زر "فتح في نافذة جديدة" أعلاه</p>
+              </div>
+            </div>
           ) : (
             <div className="flex items-center justify-center h-full bg-slate-50 p-8 text-center">
               <div>
