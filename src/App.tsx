@@ -183,6 +183,9 @@ function ContentCard({ item, onClick, onToggleFavorite }: { item: ContentItem, o
 export default function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(() => localStorage.getItem('isLoggedIn') === 'true');
   const [activeTab, setActiveTab] = useState<'home' | 'recent' | 'favorites' | 'settings'>('home');
+  const [showQuickAdd, setShowQuickAdd] = useState(false);
+  const [selectedPdfFile, setSelectedPdfFile] = useState<File | null>(null);
+  const [newItemType, setNewItemType] = useState<'link' | 'pdf'>('link');
   const [categories, setCategories] = useState<Category[]>(() => {
     const saved = localStorage.getItem('categories');
     return saved ? JSON.parse(saved) : DEFAULT_CATEGORIES;
@@ -210,7 +213,6 @@ export default function App() {
 
   const [viewingItem, setViewingItem] = useState<ContentItem | null>(null);
   const [currentCategory, setCurrentCategory] = useState<string | null>(null);
-  const [showQuickAdd, setShowQuickAdd] = useState(false);
 
   // Persistence
   useEffect(() => {
@@ -604,37 +606,82 @@ export default function App() {
                   <h4 className="text-sm font-bold mb-3 text-slate-700">إضافة رابط / ملف جديد</h4>
                   <div className="space-y-3">
                     <input id="new-item-title" placeholder="العنوان..." className="w-full p-2 bg-white border rounded-lg text-sm" />
-                    <input id="new-item-url" placeholder="الرابط (URL)..." className="w-full p-2 bg-white border rounded-lg text-sm" />
+                    
                     <div className="flex gap-2">
-                      <select id="new-item-type" className="flex-1 p-2 bg-white border rounded-lg text-sm">
+                      <select 
+                        id="new-item-type" 
+                        value={newItemType}
+                        onChange={(e) => setNewItemType(e.target.value as 'link' | 'pdf')}
+                        className="flex-1 p-2 bg-white border rounded-lg text-sm"
+                      >
                         <option value="link">رابط ويب</option>
                         <option value="pdf">ملف PDF</option>
                       </select>
-                      <button 
-                        onClick={() => {
-                          const title = (document.getElementById('new-item-title') as HTMLInputElement).value;
-                          const url = (document.getElementById('new-item-url') as HTMLInputElement).value;
-                          const type = (document.getElementById('new-item-type') as HTMLSelectElement).value as 'link' | 'pdf';
-                          if (!title || !url) return;
-                          const newItem: ContentItem = {
-                            id: Date.now().toString(),
-                            title,
-                            url,
-                            type,
-                            color: '#' + Math.floor(Math.random()*16777215).toString(16),
-                            categoryId: currentCategory || 'cat-default',
-                            createdAt: Date.now(),
-                            isFavorite: false
-                          };
-                          setItems([...items, newItem]);
-                          (document.getElementById('new-item-title') as HTMLInputElement).value = '';
-                          (document.getElementById('new-item-url') as HTMLInputElement).value = '';
-                        }}
-                        className="px-6 py-2 bg-emerald-600 text-white rounded-lg text-sm font-bold"
-                      >
-                        إضافة
-                      </button>
                     </div>
+
+                    {newItemType === 'link' ? (
+                      <input id="new-item-url" placeholder="الرابط (URL)..." className="w-full p-2 bg-white border rounded-lg text-sm" />
+                    ) : (
+                      <div className="space-y-2">
+                        <input 
+                          type="file" 
+                          accept="application/pdf" 
+                          onChange={(e) => setSelectedPdfFile(e.target.files?.[0] || null)}
+                          className="w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-emerald-50 file:text-emerald-700 hover:file:bg-emerald-100"
+                        />
+                        {selectedPdfFile && (
+                          <p className="text-[10px] text-emerald-600">تم اختيار: {selectedPdfFile.name}</p>
+                        )}
+                      </div>
+                    )}
+
+                    <button 
+                      onClick={async () => {
+                        const title = (document.getElementById('new-item-title') as HTMLInputElement).value;
+                        let url = '';
+                        
+                        if (newItemType === 'link') {
+                          url = (document.getElementById('new-item-url') as HTMLInputElement).value;
+                        } else if (selectedPdfFile) {
+                          // Check file size (limit to 2MB for localStorage safety)
+                          if (selectedPdfFile.size > 2 * 1024 * 1024) {
+                            alert('حجم الملف كبير جداً. يرجى اختيار ملف أقل من 2 ميجابايت لضمان الحفظ المحلي.');
+                            return;
+                          }
+                          // Convert PDF to base64
+                          url = await new Promise((resolve) => {
+                            const reader = new FileReader();
+                            reader.onloadend = () => resolve(reader.result as string);
+                            reader.readAsDataURL(selectedPdfFile);
+                          });
+                        }
+
+                        if (!title || !url) {
+                          alert('يرجى إدخال العنوان واختيار الرابط أو الملف');
+                          return;
+                        }
+
+                        const newItem: ContentItem = {
+                          id: Date.now().toString(),
+                          title,
+                          url,
+                          type: newItemType,
+                          color: '#' + Math.floor(Math.random()*16777215).toString(16),
+                          categoryId: currentCategory || 'cat-default',
+                          createdAt: Date.now(),
+                          isFavorite: false
+                        };
+                        setItems([...items, newItem]);
+                        (document.getElementById('new-item-title') as HTMLInputElement).value = '';
+                        if (newItemType === 'link') {
+                          (document.getElementById('new-item-url') as HTMLInputElement).value = '';
+                        }
+                        setSelectedPdfFile(null);
+                      }}
+                      className="w-full py-3 bg-emerald-600 text-white rounded-xl text-sm font-bold shadow-lg"
+                    >
+                      إضافة المحتوى
+                    </button>
                   </div>
                 </div>
 
