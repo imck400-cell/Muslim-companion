@@ -123,54 +123,82 @@ const Login = ({ onLogin, theme }: { onLogin: () => void, theme: Theme }) => {
 };
 
 const Carousel = ({ items, speed }: { items: CarouselItem[], speed: number }) => {
-  if (items.length === 0) return null;
+  if (!items || items.length === 0) return null;
 
   const colors = ['#f43f5e', '#8b5cf6', '#0ea5e9', '#10b981', '#f59e0b', '#ec4899'];
-  
-  // Calculate duration: speed 10 (slow) -> 120s, speed 100 (fast) -> 20s
   const duration = 130 - speed;
 
-  // Ensure we have enough items for a smooth loop regardless of list size
-  // We repeat the list multiple times to ensure it's wider than any screen
-  const duplicatedItems = [...items, ...items, ...items, ...items, ...items, ...items];
+  // الحل النهائي: تكرار العناصر لضمان عرض أكبر من الشاشة
+  let baseList = [...items];
+  while (baseList.length < 15) {
+    baseList = [...baseList, ...items];
+  }
 
   return (
-    <div className="w-full overflow-hidden bg-white/30 backdrop-blur-md py-0.5 border-t border-white/20">
-      <motion.div 
-        initial={{ x: '-50%' }}
-        animate={{ x: ['-50%', '0%'] }}
-        transition={{ 
-          duration: duration, 
-          repeat: Infinity, 
-          ease: "linear",
-          repeatType: "loop"
-        }}
-        className="flex gap-4 whitespace-nowrap px-2 w-max"
-        dir="rtl"
-      >
-        {duplicatedItems.map((item, idx) => (
-          <div key={`${item.id}-${idx}`} className="flex items-center">
-            <div 
-              className="relative flex items-center gap-2 px-4 py-1.5 rounded-xl shadow-md border-b overflow-hidden glow-border shrink-0"
-              style={{ 
-                background: `linear-gradient(135deg, ${colors[idx % colors.length]} 0%, ${colors[idx % colors.length]}dd 100%)`,
-                borderColor: 'rgba(255,255,255,0.2)',
-                color: '#fff'
-              }}
-            >
-              <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none">
-                <div 
-                  className="absolute top-0 right-0 w-8 h-8 bg-white/10" 
-                  style={{ clipPath: 'polygon(100% 0, 0 0, 100% 100%)' }}
-                />
+    <div className="w-full overflow-hidden bg-white/30 backdrop-blur-md py-0.5 border-t border-white/20 select-none" dir="rtl">
+      <style>
+        {`
+          @keyframes marquee-rtl {
+            0% { transform: translateX(0); }
+            100% { transform: translateX(100%); }
+          }
+        `}
+      </style>
+      <div className="flex w-full">
+        <div 
+          className="flex shrink-0 gap-4 px-2"
+          style={{ animation: `marquee-rtl ${duration}s linear infinite` }}
+        >
+          {baseList.map((item, idx) => (
+            <div key={`a-${item.id}-${idx}`} className="flex items-center">
+              <div 
+                className="relative flex items-center gap-2 px-4 py-1.5 rounded-xl shadow-md border-b overflow-hidden glow-border shrink-0"
+                style={{ 
+                  background: `linear-gradient(135deg, ${colors[idx % colors.length]} 0%, ${colors[idx % colors.length]}dd 100%)`,
+                  borderColor: 'rgba(255,255,255,0.2)',
+                  color: '#fff'
+                }}
+              >
+                <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none">
+                  <div 
+                    className="absolute top-0 right-0 w-8 h-8 bg-white/10" 
+                    style={{ clipPath: 'polygon(100% 0, 0 0, 100% 100%)' }}
+                  />
+                </div>
+                {item.imageUrl && <img src={item.imageUrl} alt="" className="w-5 h-5 rounded-lg object-cover relative z-10" />}
+                <span className="text-[10px] font-bold relative z-10 drop-shadow-sm whitespace-nowrap">{item.text}</span>
               </div>
-
-              {item.imageUrl && <img src={item.imageUrl} alt="" className="w-5 h-5 rounded-lg object-cover relative z-10" />}
-              <span className="text-[10px] font-bold relative z-10 drop-shadow-sm whitespace-nowrap">{item.text}</span>
             </div>
-          </div>
-        ))}
-      </motion.div>
+          ))}
+        </div>
+        <div 
+          className="flex shrink-0 gap-4 px-2"
+          style={{ animation: `marquee-rtl ${duration}s linear infinite` }}
+          aria-hidden="true"
+        >
+          {baseList.map((item, idx) => (
+            <div key={`b-${item.id}-${idx}`} className="flex items-center">
+              <div 
+                className="relative flex items-center gap-2 px-4 py-1.5 rounded-xl shadow-md border-b overflow-hidden glow-border shrink-0"
+                style={{ 
+                  background: `linear-gradient(135deg, ${colors[idx % colors.length]} 0%, ${colors[idx % colors.length]}dd 100%)`,
+                  borderColor: 'rgba(255,255,255,0.2)',
+                  color: '#fff'
+                }}
+              >
+                <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none">
+                  <div 
+                    className="absolute top-0 right-0 w-8 h-8 bg-white/10" 
+                    style={{ clipPath: 'polygon(100% 0, 0 0, 100% 100%)' }}
+                  />
+                </div>
+                {item.imageUrl && <img src={item.imageUrl} alt="" className="w-5 h-5 rounded-lg object-cover relative z-10" />}
+                <span className="text-[10px] font-bold relative z-10 drop-shadow-sm whitespace-nowrap">{item.text}</span>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
     </div>
   );
 };
@@ -247,7 +275,16 @@ export default function App() {
       carouselItems: [
         { id: '1', text: 'اللهم صل وسلم على نبينا محمد' },
         { id: '2', text: 'سبحان الله وبحمده سبحان الله العظيم' },
-        { id: '3', text: 'أستغفر الله العظيم وأتوب إليه' }
+        { id: '3', text: 'أستغفر الله العظيم وأتوب إليه' },
+        { id: '4', text: 'لا إله إلا الله وحده لا شريك له' },
+        { id: '5', text: 'الحمد لله حمداً كثيراً طيباً مباركاً فيه' },
+        { id: '6', text: 'لا حول ولا قوة إلا بالله العلي العظيم' },
+        { id: '7', text: 'حسبي الله لا إله إلا هو عليه توكلت وهو رب العرش العظيم' },
+        { id: '8', text: 'اللهم بك أصبحنا وبك أمسينا وبك نحيا وبك نموت وإليك النشور' },
+        { id: '9', text: 'رضيت بالله رباً وبالإسلام ديناً وبمحمد صلى الله عليه وسلم نبياً' },
+        { id: '10', text: 'يا حي يا قيوم برحمتك أستغيث أصلح لي شأني كله ولا تكلني إلى نفسي طرفة عين' },
+        { id: '11', text: 'اللهم إني أسألك العفو والعافية في الدنيا والآخرة' },
+        { id: '12', text: 'سبحان الله والحمد لله ولا إله إلا الله والله أكبر' }
       ],
       carouselSpeed: 30
     };
@@ -280,6 +317,27 @@ export default function App() {
     localStorage.setItem('notes', JSON.stringify(notes));
     localStorage.setItem('tasks', JSON.stringify(tasks));
   }, [isLoggedIn, categories, items, recentIds, settings, notes, tasks]);
+
+  // Migration: Update carousel items if they are the old defaults (only 3 items)
+  useEffect(() => {
+    if (settings.carouselItems.length === 3) {
+      const newItems = [
+        { id: '1', text: 'اللهم صل وسلم على نبينا محمد' },
+        { id: '2', text: 'سبحان الله وبحمده سبحان الله العظيم' },
+        { id: '3', text: 'أستغفر الله العظيم وأتوب إليه' },
+        { id: '4', text: 'لا إله إلا الله وحده لا شريك له' },
+        { id: '5', text: 'الحمد لله حمداً كثيراً طيباً مباركاً فيه' },
+        { id: '6', text: 'لا حول ولا قوة إلا بالله العلي العظيم' },
+        { id: '7', text: 'حسبي الله لا إله إلا هو عليه توكلت وهو رب العرش العظيم' },
+        { id: '8', text: 'اللهم بك أصبحنا وبك أمسينا وبك نحيا وبك نموت وإليك النشور' },
+        { id: '9', text: 'رضيت بالله رباً وبالإسلام ديناً وبمحمد صلى الله عليه وسلم نبياً' },
+        { id: '10', text: 'يا حي يا قيوم برحمتك أستغيث أصلح لي شأني كله ولا تكلني إلى نفسي طرفة عين' },
+        { id: '11', text: 'اللهم إني أسألك العفو والعافية في الدنيا والآخرة' },
+        { id: '12', text: 'سبحان الله والحمد لله ولا إله إلا الله والله أكبر' }
+      ];
+      setSettings(prev => ({ ...prev, carouselItems: newItems }));
+    }
+  }, []);
 
   const allCarouselItems = useMemo(() => {
     const taskItems = tasks
