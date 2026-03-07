@@ -130,18 +130,27 @@ const Carousel = ({ items, speed }: { items: CarouselItem[], speed: number }) =>
   // Calculate duration: speed 10 (slow) -> 120s, speed 100 (fast) -> 20s
   const duration = 130 - speed;
 
+  // To ensure a perfect infinite loop, we duplicate the items
+  // We need enough items to fill the screen twice
+  const duplicatedItems = [...items, ...items, ...items, ...items];
+
   return (
-    <div className="w-full overflow-hidden bg-white/30 backdrop-blur-md py-1 border-t border-white/20">
+    <div className="w-full overflow-hidden bg-white/30 backdrop-blur-md py-0.5 border-t border-white/20">
       <motion.div 
-        animate={{ x: ['0%', '-50%'] }}
-        transition={{ duration: duration, repeat: Infinity, ease: "linear" }}
-        className="flex gap-6 whitespace-nowrap px-4 w-max"
+        animate={{ x: ['-50%', '0%'] }}
+        transition={{ 
+          duration: duration, 
+          repeat: Infinity, 
+          ease: "linear",
+          repeatType: "loop"
+        }}
+        className="flex gap-4 whitespace-nowrap px-2 w-max"
         dir="rtl"
       >
-        {[...items, ...items].map((item, idx) => (
-          <div key={`${item.id}-${idx}`} className="flex items-center gap-6">
+        {duplicatedItems.map((item, idx) => (
+          <div key={`${item.id}-${idx}`} className="flex items-center">
             <div 
-              className="relative flex items-center gap-3 px-6 py-2 rounded-2xl shadow-lg border-b-2 overflow-hidden glow-border shrink-0"
+              className="relative flex items-center gap-2 px-4 py-1.5 rounded-xl shadow-md border-b overflow-hidden glow-border shrink-0"
               style={{ 
                 background: `linear-gradient(135deg, ${colors[idx % colors.length]} 0%, ${colors[idx % colors.length]}dd 100%)`,
                 borderColor: 'rgba(255,255,255,0.2)',
@@ -151,16 +160,14 @@ const Carousel = ({ items, speed }: { items: CarouselItem[], speed: number }) =>
               {/* Decorative Background Shapes */}
               <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none">
                 <div 
-                  className="absolute top-0 right-0 w-12 h-12 bg-white/10" 
+                  className="absolute top-0 right-0 w-8 h-8 bg-white/10" 
                   style={{ clipPath: 'polygon(100% 0, 0 0, 100% 100%)' }}
                 />
-                <div className="absolute -bottom-2 -left-2 w-8 h-8 rounded-full bg-white/10 backdrop-blur-sm" />
               </div>
 
-              {item.imageUrl && <img src={item.imageUrl} alt="" className="w-6 h-6 rounded-lg object-cover relative z-10" />}
-              <span className="text-xs font-bold relative z-10 drop-shadow-sm whitespace-nowrap">{item.text}</span>
+              {item.imageUrl && <img src={item.imageUrl} alt="" className="w-5 h-5 rounded-lg object-cover relative z-10" />}
+              <span className="text-[10px] font-bold relative z-10 drop-shadow-sm whitespace-nowrap">{item.text}</span>
             </div>
-            <span className="text-slate-400 font-bold text-lg">..... /</span>
           </div>
         ))}
       </motion.div>
@@ -529,8 +536,8 @@ export default function App() {
         <nav className="bg-white border-t border-slate-200 px-6 py-1.5 flex items-center justify-between">
           <button 
             onClick={() => { setActiveTab('home'); setCurrentCategory(null); }}
-            className={`flex flex-col items-center gap-0.5 transition-colors ${activeTab === 'home' ? '' : 'text-slate-400'}`}
-            style={{ color: activeTab === 'home' ? currentTheme.primary : undefined }}
+            className="flex flex-col items-center gap-0.5 transition-colors"
+            style={{ color: activeTab === 'home' ? currentTheme.primary : '#94a3b8' }}
           >
             <Home className="w-5 h-5" />
             <span className="text-[8px] font-bold">الرئيسية</span>
@@ -538,20 +545,21 @@ export default function App() {
           
           <button 
             onClick={() => setActiveTab('recent')}
-            className={`flex flex-col items-center gap-0.5 transition-colors ${activeTab === 'recent' ? '' : 'text-slate-400'}`}
-            style={{ color: activeTab === 'recent' ? currentTheme.primary : undefined }}
+            className="flex flex-col items-center gap-0.5 transition-colors"
+            style={{ color: activeTab === 'recent' ? currentTheme.primary : '#94a3b8' }}
           >
             <History className="w-5 h-5" />
             <span className="text-[8px] font-bold">الأخيرة</span>
           </button>
 
-          {/* Central Red FAB */}
-          <div className="relative -top-4">
+          {/* Central Red FAB - Aligned with others */}
+          <div className="relative">
             <motion.button
               whileHover={{ scale: 1.1 }}
               whileTap={{ scale: 0.9 }}
               onClick={() => setShowQuickAdd(true)}
               className="w-10 h-10 bg-red-600 text-white rounded-full shadow-xl flex items-center justify-center border-4 border-white"
+              style={{ backgroundColor: showQuickAdd ? currentTheme.primary : '#dc2626' }}
             >
               <Plus className="w-5 h-5" />
             </motion.button>
@@ -559,8 +567,8 @@ export default function App() {
 
           <button 
             onClick={() => setActiveTab('favorites')}
-            className={`flex flex-col items-center gap-0.5 transition-colors ${activeTab === 'favorites' ? '' : 'text-slate-400'}`}
-            style={{ color: activeTab === 'favorites' ? currentTheme.primary : undefined }}
+            className="flex flex-col items-center gap-0.5 transition-colors"
+            style={{ color: activeTab === 'favorites' ? currentTheme.primary : '#94a3b8' }}
           >
             <Heart className="w-5 h-5" />
             <span className="text-[8px] font-bold">المفضلة</span>
@@ -568,8 +576,8 @@ export default function App() {
 
           <button 
             onClick={() => setActiveTab('settings')}
-            className={`flex flex-col items-center gap-0.5 transition-colors ${activeTab === 'settings' ? '' : 'text-slate-400'}`}
-            style={{ color: activeTab === 'settings' ? currentTheme.primary : undefined }}
+            className="flex flex-col items-center gap-0.5 transition-colors"
+            style={{ color: activeTab === 'settings' ? currentTheme.primary : '#94a3b8' }}
           >
             <SettingsIcon className="w-5 h-5" />
             <span className="text-[8px] font-bold">الإعدادات</span>
