@@ -31,7 +31,7 @@ export const CONTACT_PHONE = "967780804012";
 export const WHATSAPP_LINK = "https://wa.me/967780804012";
 
 export const DEFAULT_CATEGORIES: Category[] = [
-  { id: 'cat-default', name: 'الروابط الافتراضية', parentId: null, color: '#10b981' },
+  { id: 'cat-default', name: 'برامج نافعة لك', parentId: null, color: '#10b981' },
 ];
 
 export const VIBRANT_COLORS = [

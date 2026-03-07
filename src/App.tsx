@@ -339,6 +339,15 @@ export default function App() {
     }
   }, []);
 
+  // Migration: Update default category name
+  useEffect(() => {
+    setCategories(prev => prev.map(cat => 
+      (cat.id === 'cat-default' && cat.name === 'الروابط الافتراضية') 
+        ? { ...cat, name: 'برامج نافعة لك' } 
+        : cat
+    ));
+  }, []);
+
   const allCarouselItems = useMemo(() => {
     const taskItems = tasks
       .filter(t => t.showInCarousel)
