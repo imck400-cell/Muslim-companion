@@ -121,7 +121,7 @@ const Carousel = ({ items }: { items: CarouselItem[] }) => {
   return (
     <div className="w-full overflow-hidden bg-white/50 backdrop-blur-sm py-3 border-t border-slate-100">
       <motion.div 
-        animate={{ x: [0, -1000] }}
+        animate={{ x: [-1000, 0] }}
         transition={{ duration: 30, repeat: Infinity, ease: "linear" }}
         className="flex gap-8 whitespace-nowrap px-4"
       >
