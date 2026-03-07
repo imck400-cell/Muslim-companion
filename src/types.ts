@@ -56,4 +56,5 @@ export interface AppSettings {
   language: 'ar' | 'en';
   themeId: string;
   carouselItems: CarouselItem[];
+  carouselSpeed: number; // Duration in seconds for one full cycle
 }

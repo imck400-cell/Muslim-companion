@@ -122,7 +122,7 @@ const Login = ({ onLogin, theme }: { onLogin: () => void, theme: Theme }) => {
   );
 };
 
-const Carousel = ({ items }: { items: CarouselItem[] }) => {
+const Carousel = ({ items, speed }: { items: CarouselItem[], speed: number }) => {
   if (items.length === 0) return null;
 
   const colors = ['#f43f5e', '#8b5cf6', '#0ea5e9', '#10b981', '#f59e0b', '#ec4899'];
@@ -130,31 +130,33 @@ const Carousel = ({ items }: { items: CarouselItem[] }) => {
   return (
     <div className="w-full overflow-hidden bg-white/30 backdrop-blur-md py-4 border-t border-white/20">
       <motion.div 
-        animate={{ x: [-2000, 0] }}
-        transition={{ duration: 40, repeat: Infinity, ease: "linear" }}
+        animate={{ x: ['0%', '-50%'] }}
+        transition={{ duration: speed, repeat: Infinity, ease: "linear" }}
         className="flex gap-6 whitespace-nowrap px-4 w-max"
       >
-        {[...items, ...items, ...items, ...items].map((item, idx) => (
-          <div 
-            key={`${item.id}-${idx}`} 
-            className="relative flex items-center gap-3 px-6 py-3 rounded-2xl shadow-lg border-b-2 overflow-hidden glow-border shrink-0"
-            style={{ 
-              background: `linear-gradient(135deg, ${colors[idx % colors.length]} 0%, ${colors[idx % colors.length]}dd 100%)`,
-              borderColor: 'rgba(255,255,255,0.2)',
-              color: '#fff'
-            }}
-          >
-            {/* Decorative Background Shapes */}
-            <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none">
-              <div 
-                className="absolute top-0 right-0 w-12 h-12 bg-white/10" 
-                style={{ clipPath: 'polygon(100% 0, 0 0, 100% 100%)' }}
-              />
-              <div className="absolute -bottom-2 -left-2 w-8 h-8 rounded-full bg-white/10 backdrop-blur-sm" />
-            </div>
+        {[...items, ...items].map((item, idx) => (
+          <div key={`${item.id}-${idx}`} className="flex items-center gap-6">
+            <div 
+              className="relative flex items-center gap-3 px-6 py-3 rounded-2xl shadow-lg border-b-2 overflow-hidden glow-border shrink-0"
+              style={{ 
+                background: `linear-gradient(135deg, ${colors[idx % colors.length]} 0%, ${colors[idx % colors.length]}dd 100%)`,
+                borderColor: 'rgba(255,255,255,0.2)',
+                color: '#fff'
+              }}
+            >
+              {/* Decorative Background Shapes */}
+              <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none">
+                <div 
+                  className="absolute top-0 right-0 w-12 h-12 bg-white/10" 
+                  style={{ clipPath: 'polygon(100% 0, 0 0, 100% 100%)' }}
+                />
+                <div className="absolute -bottom-2 -left-2 w-8 h-8 rounded-full bg-white/10 backdrop-blur-sm" />
+              </div>
 
-            {item.imageUrl && <img src={item.imageUrl} alt="" className="w-8 h-8 rounded-lg object-cover relative z-10" />}
-            <span className="text-sm font-bold relative z-10 drop-shadow-sm whitespace-nowrap">{item.text}</span>
+              {item.imageUrl && <img src={item.imageUrl} alt="" className="w-8 h-8 rounded-lg object-cover relative z-10" />}
+              <span className="text-sm font-bold relative z-10 drop-shadow-sm whitespace-nowrap">{item.text}</span>
+            </div>
+            <span className="text-slate-400 font-bold text-xl">..... /</span>
           </div>
         ))}
       </motion.div>
@@ -235,7 +237,8 @@ export default function App() {
         { id: '1', text: 'اللهم صل وسلم على نبينا محمد' },
         { id: '2', text: 'سبحان الله وبحمده سبحان الله العظيم' },
         { id: '3', text: 'أستغفر الله العظيم وأتوب إليه' }
-      ]
+      ],
+      carouselSpeed: 40
     };
   });
 
@@ -521,8 +524,6 @@ export default function App() {
 
       {/* Fixed Bottom UI */}
       <div className="fixed bottom-0 left-0 w-full z-40">
-        <Carousel items={allCarouselItems} />
-        
         <nav className="bg-white border-t border-slate-200 px-6 py-3 flex items-center justify-between">
           <button 
             onClick={() => { setActiveTab('home'); setCurrentCategory(null); }}
@@ -680,10 +681,24 @@ export default function App() {
 
               {/* Carousel Management */}
               <section>
-                <h3 className="text-lg font-bold mb-4 flex items-center gap-2">
-                  <Edit2 className="w-5 h-5 text-emerald-600" />
-                  شريط الإعلانات
-                </h3>
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-bold flex items-center gap-2">
+                    <Edit2 className="w-5 h-5 text-emerald-600" />
+                    شريط الإعلانات
+                  </h3>
+                  <div className="flex items-center gap-2 bg-slate-50 px-3 py-1 rounded-full border">
+                    <span className="text-[10px] font-bold text-slate-500">السرعة:</span>
+                    <input 
+                      type="range" 
+                      min="10" 
+                      max="100" 
+                      step="5"
+                      value={settings.carouselSpeed}
+                      onChange={(e) => setSettings(s => ({ ...s, carouselSpeed: parseInt(e.target.value) }))}
+                      className="w-20 accent-emerald-600"
+                    />
+                  </div>
+                </div>
                 <div className="space-y-3">
                   {settings.carouselItems.map(item => (
                     <div key={item.id} className="flex gap-2">
@@ -791,7 +806,22 @@ export default function App() {
                     {newItemType === 'link' ? (
                       <input id="new-item-url" placeholder="الرابط (URL)..." className="w-full p-2 bg-white border rounded-lg text-sm" />
                     ) : (
-                      <input id="new-item-url" placeholder="رابط ملف PDF (URL)..." className="w-full p-2 bg-white border rounded-lg text-sm" />
+                      <div className="flex gap-2">
+                        <input id="new-item-url" placeholder="رابط الملف أو مساره..." className="flex-1 p-2 bg-white border rounded-lg text-sm" />
+                        <label className="px-4 py-2 bg-slate-100 text-slate-600 rounded-lg text-xs font-bold cursor-pointer hover:bg-slate-200 transition-colors flex items-center">
+                          <span>تصفح</span>
+                          <input 
+                            type="file" 
+                            className="hidden" 
+                            onChange={(e) => {
+                              const file = e.target.files?.[0];
+                              if (file) {
+                                (document.getElementById('new-item-url') as HTMLInputElement).value = `file://${file.name}`;
+                              }
+                            }}
+                          />
+                        </label>
+                      </div>
                     )}
 
                     <button 
@@ -1066,6 +1096,10 @@ export default function App() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      <div className="fixed bottom-[64px] left-0 w-full z-30">
+        <Carousel items={allCarouselItems} speed={settings.carouselSpeed} />
+      </div>
     </div>
   );
 }
