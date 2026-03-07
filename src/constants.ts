@@ -34,6 +34,21 @@ export const DEFAULT_CATEGORIES: Category[] = [
   { id: 'cat-default', name: 'الروابط الافتراضية', parentId: null, color: '#10b981' },
 ];
 
+export const VIBRANT_COLORS = [
+  '#f43f5e', // Rose
+  '#8b5cf6', // Violet
+  '#0ea5e9', // Sky
+  '#10b981', // Emerald
+  '#f59e0b', // Amber
+  '#ec4899', // Pink
+  '#ef4444', // Red
+  '#3b82f6', // Blue
+  '#6366f1', // Indigo
+  '#14b8a6', // Teal
+  '#f97316', // Orange
+  '#84cc16', // Lime
+];
+
 export const DEFAULT_ITEMS: ContentItem[] = [
   {
     id: 'item-1',

@@ -32,7 +32,7 @@ import {
   Save,
   Share2
 } from 'lucide-react';
-import { LOGIN_PHRASE, WELCOME_MESSAGE, FOOTER_INFO, CONTACT_PHONE, WHATSAPP_LINK, DEFAULT_CATEGORIES, DEFAULT_ITEMS, THEMES } from './constants';
+import { LOGIN_PHRASE, WELCOME_MESSAGE, FOOTER_INFO, CONTACT_PHONE, WHATSAPP_LINK, DEFAULT_CATEGORIES, DEFAULT_ITEMS, THEMES, VIBRANT_COLORS } from './constants';
 import { Category, ContentItem, AppSettings, CarouselItem, Theme, Note, Task, TaskStatus } from './types';
 
 // --- Components ---
@@ -126,12 +126,15 @@ const Carousel = ({ items, speed }: { items: CarouselItem[], speed: number }) =>
   if (items.length === 0) return null;
 
   const colors = ['#f43f5e', '#8b5cf6', '#0ea5e9', '#10b981', '#f59e0b', '#ec4899'];
+  
+  // Calculate duration: speed 10 (slow) -> 120s, speed 100 (fast) -> 20s
+  const duration = 130 - speed;
 
   return (
     <div className="w-full overflow-hidden bg-white/30 backdrop-blur-md py-4 border-t border-white/20">
       <motion.div 
         animate={{ x: ['0%', '-50%'] }}
-        transition={{ duration: speed, repeat: Infinity, ease: "linear" }}
+        transition={{ duration: duration, repeat: Infinity, ease: "linear" }}
         className="flex gap-6 whitespace-nowrap px-4 w-max"
       >
         {[...items, ...items].map((item, idx) => (
@@ -238,7 +241,7 @@ export default function App() {
         { id: '2', text: 'سبحان الله وبحمده سبحان الله العظيم' },
         { id: '3', text: 'أستغفر الله العظيم وأتوب إليه' }
       ],
-      carouselSpeed: 40
+      carouselSpeed: 30
     };
   });
 
@@ -281,10 +284,11 @@ export default function App() {
 
   const handleItemClick = (item: ContentItem) => {
     setRecentIds(prev => [item.id, ...prev.filter(id => id !== item.id)].slice(0, 10));
-    if (item.type === 'link') {
+    if (item.type === 'link' || item.url.startsWith('http') || item.url.startsWith('blob:') || item.url.startsWith('data:')) {
       window.open(item.url, '_blank');
     } else {
-      setViewingItem(item);
+      // Try to handle local file paths or just open in new tab
+      window.open(item.url, '_blank');
     }
   };
 
@@ -385,6 +389,9 @@ export default function App() {
               </div>
             </div>
           )}
+        </div>
+        <div className="bg-white border-t border-slate-200">
+          <Carousel items={allCarouselItems} speed={settings.carouselSpeed} />
         </div>
       </div>
     );
@@ -807,8 +814,8 @@ export default function App() {
                       <input id="new-item-url" placeholder="الرابط (URL)..." className="w-full p-2 bg-white border rounded-lg text-sm" />
                     ) : (
                       <div className="flex gap-2">
-                        <input id="new-item-url" placeholder="رابط الملف أو مساره..." className="flex-1 p-2 bg-white border rounded-lg text-sm" />
-                        <label className="px-4 py-2 bg-slate-100 text-slate-600 rounded-lg text-xs font-bold cursor-pointer hover:bg-slate-200 transition-colors flex items-center">
+                        <input id="new-item-url" placeholder="مسار الملف المختار..." className="flex-1 p-2 bg-white border rounded-lg text-sm" />
+                        <label className="px-4 py-2 bg-emerald-100 text-emerald-700 rounded-lg text-xs font-bold cursor-pointer hover:bg-emerald-200 transition-colors flex items-center">
                           <span>تصفح</span>
                           <input 
                             type="file" 
@@ -816,7 +823,13 @@ export default function App() {
                             onChange={(e) => {
                               const file = e.target.files?.[0];
                               if (file) {
-                                (document.getElementById('new-item-url') as HTMLInputElement).value = `file://${file.name}`;
+                                // In a real app we'd use File System Access API or store a blob
+                                // For this request, we'll store the blob URL which works for the session
+                                const blobUrl = URL.createObjectURL(file);
+                                (document.getElementById('new-item-url') as HTMLInputElement).value = blobUrl;
+                                if (!(document.getElementById('new-item-title') as HTMLInputElement).value) {
+                                  (document.getElementById('new-item-title') as HTMLInputElement).value = file.name;
+                                }
                               }
                             }}
                           />
@@ -839,7 +852,7 @@ export default function App() {
                           title,
                           url,
                           type: newItemType,
-                          color: '#' + Math.floor(Math.random()*16777215).toString(16),
+                          color: VIBRANT_COLORS[Math.floor(Math.random() * VIBRANT_COLORS.length)],
                           categoryId: targetCategoryId,
                           createdAt: Date.now(),
                           isFavorite: false
@@ -1097,7 +1110,7 @@ export default function App() {
         )}
       </AnimatePresence>
 
-      <div className="fixed bottom-[64px] left-0 w-full z-30">
+      <div className="fixed bottom-[64px] left-0 w-full z-[60]">
         <Carousel items={allCarouselItems} speed={settings.carouselSpeed} />
       </div>
     </div>
