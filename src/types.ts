@@ -35,6 +35,23 @@ export interface Theme {
   accent: string;
 }
 
+export interface Note {
+  id: string;
+  content: string;
+  createdAt: number;
+}
+
+export type TaskStatus = 'none' | 'in-progress' | 'completed' | 'not-completed';
+
+export interface Task {
+  id: string;
+  title: string;
+  date: string;
+  status: TaskStatus;
+  showInCarousel: boolean;
+  createdAt: number;
+}
+
 export interface AppSettings {
   language: 'ar' | 'en';
   themeId: string;

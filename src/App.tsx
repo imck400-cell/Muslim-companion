@@ -25,10 +25,15 @@ import {
   Menu,
   X,
   Languages,
-  ArrowRight
+  ArrowRight,
+  Book,
+  CheckSquare,
+  Calendar,
+  Save,
+  Share2
 } from 'lucide-react';
 import { LOGIN_PHRASE, WELCOME_MESSAGE, FOOTER_INFO, CONTACT_PHONE, WHATSAPP_LINK, DEFAULT_CATEGORIES, DEFAULT_ITEMS, THEMES } from './constants';
-import { Category, ContentItem, AppSettings, CarouselItem, Theme } from './types';
+import { Category, ContentItem, AppSettings, CarouselItem, Theme, Note, Task, TaskStatus } from './types';
 
 // --- Components ---
 
@@ -240,6 +245,16 @@ export default function App() {
   const [currentCategory, setCurrentCategory] = useState<string | null>(null);
   const [isThemesCollapsed, setIsThemesCollapsed] = useState(true);
   const [targetCategoryId, setTargetCategoryId] = useState<string>('cat-default');
+  const [activeModule, setActiveModule] = useState<'none' | 'notebook' | 'tasks'>('none');
+
+  const [notes, setNotes] = useState<Note[]>(() => {
+    const saved = localStorage.getItem('notes');
+    return saved ? JSON.parse(saved) : [];
+  });
+  const [tasks, setTasks] = useState<Task[]>(() => {
+    const saved = localStorage.getItem('tasks');
+    return saved ? JSON.parse(saved) : [];
+  });
 
   // Persistence
   useEffect(() => {
@@ -248,7 +263,16 @@ export default function App() {
     localStorage.setItem('items', JSON.stringify(items));
     localStorage.setItem('recentIds', JSON.stringify(recentIds));
     localStorage.setItem('settings', JSON.stringify(settings));
-  }, [isLoggedIn, categories, items, recentIds, settings]);
+    localStorage.setItem('notes', JSON.stringify(notes));
+    localStorage.setItem('tasks', JSON.stringify(tasks));
+  }, [isLoggedIn, categories, items, recentIds, settings, notes, tasks]);
+
+  const allCarouselItems = useMemo(() => {
+    const taskItems = tasks
+      .filter(t => t.showInCarousel)
+      .map(t => ({ id: t.id, text: `مهمة: ${t.title} - ${t.date}` }));
+    return [...settings.carouselItems, ...taskItems];
+  }, [settings.carouselItems, tasks]);
 
   const handleLogin = () => setIsLoggedIn(true);
 
@@ -404,6 +428,49 @@ export default function App() {
           </div>
         )}
 
+        {/* Special Modules Grid */}
+        {activeTab === 'home' && !currentCategory && (
+          <div className="space-y-4 mb-6">
+            <motion.button
+              whileHover={{ scale: 1.01, y: -2 }}
+              whileTap={{ scale: 0.99 }}
+              onClick={() => setActiveModule('tasks')}
+              className="relative w-full p-5 rounded-2xl bg-gradient-to-br from-indigo-500 to-indigo-700 text-white shadow-xl flex items-center justify-between overflow-hidden glow-border"
+            >
+              <div className="absolute top-0 right-0 w-24 h-24 bg-white/10" style={{ clipPath: 'polygon(100% 0, 0 0, 100% 100%)' }} />
+              <div className="flex items-center gap-4 relative z-10">
+                <div className="p-3 bg-white/20 rounded-xl backdrop-blur-md">
+                  <CheckSquare className="w-8 h-8" />
+                </div>
+                <div className="text-right">
+                  <span className="font-display font-bold text-xl block">المهام اليومية</span>
+                  <span className="text-xs opacity-80">تنظيم وإدارة مهامك</span>
+                </div>
+              </div>
+              <ChevronLeft className="w-6 h-6 opacity-50" />
+            </motion.button>
+
+            <motion.button
+              whileHover={{ scale: 1.01, y: -2 }}
+              whileTap={{ scale: 0.99 }}
+              onClick={() => setActiveModule('notebook')}
+              className="relative w-full p-5 rounded-2xl bg-gradient-to-br from-amber-500 to-amber-700 text-white shadow-xl flex items-center justify-between overflow-hidden glow-border"
+            >
+              <div className="absolute top-0 right-0 w-24 h-24 bg-white/10" style={{ clipPath: 'polygon(100% 0, 0 0, 100% 100%)' }} />
+              <div className="flex items-center gap-4 relative z-10">
+                <div className="p-3 bg-white/20 rounded-xl backdrop-blur-md">
+                  <Book className="w-8 h-8" />
+                </div>
+                <div className="text-right">
+                  <span className="font-display font-bold text-xl block">مفكرة المسلم</span>
+                  <span className="text-xs opacity-80">تدوين الملاحظات والفوائد</span>
+                </div>
+              </div>
+              <ChevronLeft className="w-6 h-6 opacity-50" />
+            </motion.button>
+          </div>
+        )}
+
         {/* Categories Grid */}
         {activeTab === 'home' && (
           <div className="grid grid-cols-1 gap-3">
@@ -454,7 +521,7 @@ export default function App() {
 
       {/* Fixed Bottom UI */}
       <div className="fixed bottom-0 left-0 w-full z-40">
-        <Carousel items={settings.carouselItems} />
+        <Carousel items={allCarouselItems} />
         
         <nav className="bg-white border-t border-slate-200 px-6 py-3 flex items-center justify-between">
           <button 
@@ -724,42 +791,16 @@ export default function App() {
                     {newItemType === 'link' ? (
                       <input id="new-item-url" placeholder="الرابط (URL)..." className="w-full p-2 bg-white border rounded-lg text-sm" />
                     ) : (
-                      <div className="space-y-2">
-                        <input 
-                          type="file" 
-                          accept="application/pdf" 
-                          onChange={(e) => setSelectedPdfFile(e.target.files?.[0] || null)}
-                          className="w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-emerald-50 file:text-emerald-700 hover:file:bg-emerald-100"
-                        />
-                        {selectedPdfFile && (
-                          <p className="text-[10px] text-emerald-600">تم اختيار: {selectedPdfFile.name}</p>
-                        )}
-                      </div>
+                      <input id="new-item-url" placeholder="رابط ملف PDF (URL)..." className="w-full p-2 bg-white border rounded-lg text-sm" />
                     )}
 
                     <button 
                       onClick={async () => {
                         const title = (document.getElementById('new-item-title') as HTMLInputElement).value;
-                        let url = '';
+                        const url = (document.getElementById('new-item-url') as HTMLInputElement).value;
                         
-                        if (newItemType === 'link') {
-                          url = (document.getElementById('new-item-url') as HTMLInputElement).value;
-                        } else if (selectedPdfFile) {
-                          // Check file size (limit to 2MB for localStorage safety)
-                          if (selectedPdfFile.size > 2 * 1024 * 1024) {
-                            alert('حجم الملف كبير جداً. يرجى اختيار ملف أقل من 2 ميجابايت لضمان الحفظ المحلي.');
-                            return;
-                          }
-                          // Convert PDF to base64
-                          url = await new Promise((resolve) => {
-                            const reader = new FileReader();
-                            reader.onloadend = () => resolve(reader.result as string);
-                            reader.readAsDataURL(selectedPdfFile);
-                          });
-                        }
-
                         if (!title || !url) {
-                          alert('يرجى إدخال العنوان واختيار الرابط أو الملف');
+                          alert('يرجى إدخال العنوان والرابط');
                           return;
                         }
 
@@ -775,9 +816,7 @@ export default function App() {
                         };
                         setItems([...items, newItem]);
                         (document.getElementById('new-item-title') as HTMLInputElement).value = '';
-                        if (newItemType === 'link') {
-                          (document.getElementById('new-item-url') as HTMLInputElement).value = '';
-                        }
+                        (document.getElementById('new-item-url') as HTMLInputElement).value = '';
                         setSelectedPdfFile(null);
                       }}
                       className="w-full py-3 bg-emerald-600 text-white rounded-xl text-sm font-bold shadow-lg"
@@ -833,6 +872,196 @@ export default function App() {
               >
                 تسجيل الخروج
               </button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+      {/* Notebook Module */}
+      <AnimatePresence>
+        {activeModule === 'notebook' && (
+          <motion.div 
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.95 }}
+            className="fixed inset-0 bg-white z-50 overflow-y-auto p-6 flex flex-col"
+          >
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-2xl font-display font-bold text-amber-800 flex items-center gap-2">
+                <Book className="w-6 h-6" />
+                مفكرة المسلم
+              </h2>
+              <button onClick={() => setActiveModule('none')} className="p-2 bg-slate-100 rounded-full">
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+
+            <div className="flex-1 space-y-6">
+              <div className="bg-amber-50 p-4 rounded-2xl border border-amber-100">
+                <textarea 
+                  id="note-content"
+                  placeholder="اكتب أو الصق النص هنا..."
+                  className="w-full h-40 bg-transparent border-none focus:ring-0 text-slate-700 font-medium resize-none"
+                />
+                <button 
+                  onClick={() => {
+                    const content = (document.getElementById('note-content') as HTMLTextAreaElement).value;
+                    if (!content) return;
+                    const newNote: Note = {
+                      id: Date.now().toString(),
+                      content,
+                      createdAt: Date.now()
+                    };
+                    setNotes([newNote, ...notes]);
+                    (document.getElementById('note-content') as HTMLTextAreaElement).value = '';
+                  }}
+                  className="w-full mt-4 py-3 bg-amber-600 text-white rounded-xl font-bold shadow-lg flex items-center justify-center gap-2"
+                >
+                  <Save className="w-5 h-5" />
+                  حفظ في المفكرة
+                </button>
+              </div>
+
+              <div className="space-y-4">
+                <h3 className="font-bold text-slate-500 uppercase tracking-wider text-xs">الملاحظات المحفوظة</h3>
+                {notes.map(note => (
+                  <div key={note.id} className="p-4 bg-white border border-slate-100 rounded-2xl shadow-sm space-y-3">
+                    <div className="flex justify-between items-center text-[10px] text-slate-400 font-bold">
+                      <span>{new Date(note.createdAt).toLocaleString('ar-EG')}</span>
+                      <button onClick={() => setNotes(notes.filter(n => n.id !== note.id))} className="text-red-400">
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                    <p className="text-slate-700 text-sm leading-relaxed whitespace-pre-wrap">{note.content}</p>
+                    <button 
+                      onClick={() => {
+                        navigator.clipboard.writeText(note.content);
+                        alert('تم نسخ النص');
+                      }}
+                      className="text-xs font-bold text-amber-600 flex items-center gap-1"
+                    >
+                      <Copy className="w-3 h-3" />
+                      نسخ النص
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Tasks Module */}
+      <AnimatePresence>
+        {activeModule === 'tasks' && (
+          <motion.div 
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.95 }}
+            className="fixed inset-0 bg-white z-50 overflow-y-auto p-6 flex flex-col"
+          >
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-2xl font-display font-bold text-indigo-800 flex items-center gap-2">
+                <CheckSquare className="w-6 h-6" />
+                المهام
+              </h2>
+              <button onClick={() => setActiveModule('none')} className="p-2 bg-slate-100 rounded-full">
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+
+            <div className="flex-1 space-y-6">
+              <div className="bg-indigo-50 p-6 rounded-3xl border border-indigo-100 space-y-4">
+                <input 
+                  id="task-title"
+                  placeholder="ما هي المهمة؟"
+                  className="w-full p-3 bg-white border border-indigo-100 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
+                />
+                <div className="flex items-center gap-2 bg-white p-3 rounded-xl border border-indigo-100">
+                  <Calendar className="w-5 h-5 text-indigo-400" />
+                  <input 
+                    id="task-date"
+                    type="date"
+                    className="flex-1 bg-transparent border-none focus:ring-0 text-sm text-slate-600"
+                  />
+                </div>
+                <button 
+                  onClick={() => {
+                    const title = (document.getElementById('task-title') as HTMLInputElement).value;
+                    const date = (document.getElementById('task-date') as HTMLInputElement).value;
+                    if (!title || !date) return;
+                    const newTask: Task = {
+                      id: Date.now().toString(),
+                      title,
+                      date,
+                      status: 'none',
+                      showInCarousel: false,
+                      createdAt: Date.now()
+                    };
+                    setTasks([newTask, ...tasks]);
+                    (document.getElementById('task-title') as HTMLInputElement).value = '';
+                    (document.getElementById('task-date') as HTMLInputElement).value = '';
+                  }}
+                  className="w-full py-3 bg-indigo-600 text-white rounded-xl font-bold shadow-lg"
+                >
+                  إضافة المهمة
+                </button>
+              </div>
+
+              <div className="space-y-4">
+                <h3 className="font-bold text-slate-500 uppercase tracking-wider text-xs">قائمة المهام</h3>
+                {tasks.map(task => (
+                  <div key={task.id} className="p-4 bg-white border border-slate-100 rounded-2xl shadow-sm flex flex-col gap-3">
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <h4 className="font-bold text-slate-800">{task.title}</h4>
+                        <div className="flex items-center gap-1 text-[10px] text-slate-400 mt-1">
+                          <Calendar className="w-3 h-3" />
+                          <span>{task.date}</span>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button 
+                          onClick={() => {
+                            setTasks(tasks.map(t => t.id === task.id ? { ...t, showInCarousel: !t.showInCarousel } : t));
+                          }}
+                          className={`p-2 rounded-lg transition-colors ${task.showInCarousel ? 'bg-amber-100 text-amber-600' : 'bg-slate-50 text-slate-400'}`}
+                          title="إظهار في الشريط المتحرك"
+                        >
+                          <Share2 className="w-4 h-4" />
+                        </button>
+                        <button onClick={() => setTasks(tasks.filter(t => t.id !== task.id))} className="p-2 text-red-400">
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+                    
+                    <div className="flex items-center justify-between pt-2 border-t border-slate-50">
+                      <button 
+                        onClick={() => {
+                          const nextStatus: Record<TaskStatus, TaskStatus> = {
+                            'none': 'in-progress',
+                            'in-progress': 'completed',
+                            'completed': 'not-completed',
+                            'not-completed': 'none'
+                          };
+                          setTasks(tasks.map(t => t.id === task.id ? { ...t, status: nextStatus[t.status] } : t));
+                        }}
+                        className={`px-4 py-2 rounded-xl text-xs font-bold transition-all border-2 ${
+                          task.status === 'in-progress' ? 'bg-blue-50 border-blue-200 text-blue-600' :
+                          task.status === 'completed' ? 'bg-emerald-50 border-emerald-200 text-emerald-600' :
+                          task.status === 'not-completed' ? 'bg-red-50 border-red-200 text-red-600' :
+                          'bg-slate-50 border-slate-100 text-slate-400'
+                        }`}
+                      >
+                        {task.status === 'none' && 'تحديد الحالة'}
+                        {task.status === 'in-progress' && 'قيد التنفيذ'}
+                        {task.status === 'completed' && 'تم التنفيذ'}
+                        {task.status === 'not-completed' && 'لم يتم التنفيذ'}
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
           </motion.div>
         )}
