@@ -348,6 +348,11 @@ export default function App() {
     ));
   }, []);
 
+  // Migration: Remove specific item
+  useEffect(() => {
+    setItems(prev => prev.filter(item => !item.title.includes('المستندات')));
+  }, []);
+
   const allCarouselItems = useMemo(() => {
     const taskItems = tasks
       .filter(t => t.showInCarousel)

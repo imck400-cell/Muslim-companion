@@ -110,4 +110,14 @@ export const DEFAULT_ITEMS: ContentItem[] = [
     createdAt: Date.now(),
     isFavorite: false,
   },
+  {
+    id: 'item-7',
+    title: 'رفيقك مع المستندات',
+    type: 'link',
+    url: 'https://ai.studio/apps/7dcf1197-e94d-4a44-bdc9-e1c38dbdcb1f',
+    color: '#8b5cf6',
+    categoryId: 'cat-default',
+    createdAt: Date.now(),
+    isFavorite: false,
+  },
 ];
