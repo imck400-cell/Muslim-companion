@@ -1,0 +1,128 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+    function isAuthenticated() {
+       return true; // Explicitly requested by user to remove login
+    }
+    
+    function isOwner(userId) {
+       return isAuthenticated() && request.auth.uid == userId;
+    }
+    
+    function isDocOwner() {
+       return isAuthenticated() && request.auth.uid == resource.data.uid;
+    }
+    
+    function uidUnchanged() {
+       return !('uid' in request.resource.data) || request.resource.data.uid == request.auth.uid;
+    }
+    
+    function uidNotModified() {
+       return !('uid' in request.resource.data) || request.resource.data.uid == resource.data.uid;
+    }
+    
+    function hasRequiredFields(fields) {
+       return request.resource.data.keys().hasAll(fields);
+    }
+    
+    function validStringLength(field, minLen, maxLen) {
+       return request.resource.data[field] is string &&
+         request.resource.data[field].size() >= minLen &&
+         request.resource.data[field].size() <= maxLen;
+    }
+
+    // ===============================================================
+    // Domain Validators
+    // ===============================================================
+    
+    function isValidCategory() {
+      return hasRequiredFields(['id', 'name', 'color', 'uid']) &&
+             validStringLength('id', 1, 100) &&
+             validStringLength('name', 1, 100) &&
+             validStringLength('color', 1, 30) &&
+             (!('parentId' in request.resource.data) || request.resource.data.parentId == null || validStringLength('parentId', 1, 100));
+    }
+
+    function isValidContentItem() {
+      return hasRequiredFields(['id', 'title', 'url', 'type', 'color', 'categoryId', 'createdAt', 'isFavorite', 'uid']) &&
+             validStringLength('id', 1, 100) &&
+             validStringLength('title', 1, 200) &&
+             validStringLength('url', 1, 2000) &&
+             request.resource.data.type in ['link', 'pdf'] &&
+             validStringLength('color', 1, 30) &&
+             validStringLength('categoryId', 1, 100) &&
+             request.resource.data.createdAt is number &&
+             request.resource.data.isFavorite is bool;
+    }
+
+    function isValidNote() {
+      return hasRequiredFields(['id', 'title', 'content', 'date', 'color', 'uid']) &&
+             validStringLength('id', 1, 100) &&
+             validStringLength('title', 1, 200) &&
+             validStringLength('content', 0, 50000) &&
+             validStringLength('date', 1, 50) &&
+             validStringLength('color', 1, 30);
+    }
+
+    function isValidTask() {
+      return hasRequiredFields(['id', 'title', 'completed', 'date', 'showInCarousel', 'uid']) &&
+             validStringLength('id', 1, 100) &&
+             validStringLength('title', 1, 200) &&
+             request.resource.data.completed is bool &&
+             validStringLength('date', 1, 50) &&
+             request.resource.data.showInCarousel is bool;
+    }
+
+    function isValidSettings() {
+      return hasRequiredFields(['language', 'themeId', 'carouselItems', 'carouselSpeed', 'uid']) &&
+             validStringLength('language', 1, 10) &&
+             validStringLength('themeId', 1, 50) &&
+             request.resource.data.carouselItems is list &&
+             request.resource.data.carouselItems.size() <= 50 &&
+             request.resource.data.carouselSpeed is number;
+    }
+
+    // ===============================================================
+    // Rules
+    // ===============================================================
+
+    match /categories/{categoryId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && isValidCategory();
+      allow update: if isAuthenticated() && isValidCategory();
+      allow delete: if isAuthenticated();
+    }
+
+    match /items/{itemId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && isValidContentItem();
+      allow update: if isAuthenticated() && isValidContentItem();
+      allow delete: if isAuthenticated();
+    }
+
+    match /notes/{noteId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && isValidNote();
+      allow update: if isAuthenticated() && isValidNote();
+      allow delete: if isAuthenticated();
+    }
+
+    match /tasks/{taskId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && isValidTask();
+      allow update: if isAuthenticated() && isValidTask();
+      allow delete: if isAuthenticated();
+    }
+
+    match /settings/{settingId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && isValidSettings();
+      allow update: if isAuthenticated() && isValidSettings();
+      allow delete: if isAuthenticated();
+    }
+  }
+}

@@ -1,23 +1,15 @@
-const CACHE_NAME = 'muslim-companion-v1';
-const assets = [
-  '/',
-  '/index.html',
-  '/manifest.json',
-  '/icon.svg'
-];
-
-self.addEventListener('install', (event) => {
-  event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => {
-      return cache.addAll(assets);
-    })
+self.addEventListener('install', (e) => {
+  e.waitUntil(
+    caches.open('app-store').then((cache) => cache.addAll([
+      '/',
+      '/index.html',
+      '/manifest.json'
+    ]))
   );
 });
 
-self.addEventListener('fetch', (event) => {
-  event.respondWith(
-    caches.match(event.request).then((response) => {
-      return response || fetch(event.request);
-    })
+self.addEventListener('fetch', (e) => {
+  e.respondWith(
+    caches.match(e.request).then((response) => response || fetch(e.request))
   );
 });
