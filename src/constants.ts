@@ -32,13 +32,6 @@ export const WHATSAPP_LINK = "https://wa.me/967780804012";
 
 export const DEFAULT_CATEGORIES: Category[] = [
   { id: 'cat-default', name: 'برامج نافعة لك', parentId: null, color: '#10b981' },
-  { id: 'cat-useful-sites', name: 'مواقع وبرامج تحتاجها كثيرا', parentId: null, color: '#f43f5e' },
-  { id: 'cat-tafsir', name: 'تفسير القرآن الكريم', parentId: 'cat-useful-sites', color: '#8b5cf6' },
-  { id: 'cat-hadith', name: 'الحديث النبوي', parentId: 'cat-useful-sites', color: '#f59e0b' },
-  { id: 'cat-fiqh', name: 'مسائل فقهية', parentId: 'cat-useful-sites', color: '#ef4444' },
-  { id: 'cat-edu', name: 'التعليم الشرعي', parentId: 'cat-useful-sites', color: '#14b8a6' },
-  { id: 'cat-admin', name: 'الهيئات الرسمية', parentId: 'cat-useful-sites', color: '#ec4899' },
-  { id: 'cat-programming', name: 'روابط برمجية', parentId: 'cat-useful-sites', color: '#3b82f6' },
 ];
 
 export const VIBRANT_COLORS = [
@@ -117,78 +110,4 @@ export const DEFAULT_ITEMS: ContentItem[] = [
     createdAt: Date.now(),
     isFavorite: false,
   },
-  {
-    id: 'item-7',
-    title: 'رفيقك مع المستندات',
-    type: 'link',
-    url: 'https://ai.studio/apps/7dcf1197-e94d-4a44-bdc9-e1c38dbdcb1f',
-    color: '#8b5cf6',
-    categoryId: 'cat-default',
-    createdAt: Date.now(),
-    isFavorite: false,
-  },
-  {
-    id: 'item-8',
-    title: 'رفيقك اليومي',
-    type: 'link',
-    url: 'https://ai.studio/apps/9a4e818a-16ee-43ed-836c-96d4565d6a47',
-    color: '#10b981',
-    categoryId: 'cat-default',
-    createdAt: Date.now(),
-    isFavorite: false,
-    openInNewTab: true,
-  },
-  {
-    id: 'item-9',
-    title: 'رفيق الداعية',
-    type: 'link',
-    url: 'https://ai.studio/apps/fc5a3ee1-f9f2-4fbc-b642-ba1456ef6608',
-    color: '#f59e0b',
-    categoryId: 'cat-default',
-    createdAt: Date.now(),
-    isFavorite: false,
-    openInNewTab: true,
-  },
-  // Programming Links
-  { id: 'item-10', title: 'جيمني', type: 'link', url: 'https://gemini.google.com', color: '#f43f5e', categoryId: 'cat-programming', createdAt: Date.now(), isFavorite: false, openInNewTab: true },
-  { id: 'item-11', title: 'ديب سيك', type: 'link', url: 'https://deepseek.com', color: '#8b5cf6', categoryId: 'cat-programming', createdAt: Date.now(), isFavorite: false, openInNewTab: true },
-  { id: 'item-12', title: 'بربلكستي', type: 'link', url: 'https://www.perplexity.ai', color: '#0ea5e9', categoryId: 'cat-programming', createdAt: Date.now(), isFavorite: false, openInNewTab: true },
-  { id: 'item-13', title: 'شات جي بي تي', type: 'link', url: 'https://chat.openai.com', color: '#10b981', categoryId: 'cat-programming', createdAt: Date.now(), isFavorite: false, openInNewTab: true },
-  { id: 'item-14', title: 'نوت بوك (NotebookLM)', type: 'link', url: 'https://notebooklm.google.com', color: '#f59e0b', categoryId: 'cat-programming', createdAt: Date.now(), isFavorite: false, openInNewTab: true },
-  { id: 'item-15', title: 'قوقل إيه آي استوديو', type: 'link', url: 'https://aistudio.google.com', color: '#ec4899', categoryId: 'cat-programming', createdAt: Date.now(), isFavorite: false, openInNewTab: true },
-  { id: 'item-16', title: 'كاب كات', type: 'link', url: 'https://www.capcut.com', color: '#ef4444', categoryId: 'cat-programming', createdAt: Date.now(), isFavorite: false, openInNewTab: true },
-  { id: 'item-17', title: 'برنامج يب', type: 'link', url: 'https://yupp.ai', color: '#3b82f6', categoryId: 'cat-programming', createdAt: Date.now(), isFavorite: false, openInNewTab: true },
-  { id: 'item-18', title: 'بي دي إف 24', type: 'link', url: 'https://www.pdf24.org', color: '#6366f1', categoryId: 'cat-programming', createdAt: Date.now(), isFavorite: false, openInNewTab: true },
-  { id: 'item-19', title: 'تحسين الأوامر (GeneratePrompt)', type: 'link', url: 'https://generateprompt.ai', color: '#14b8a6', categoryId: 'cat-programming', createdAt: Date.now(), isFavorite: false, openInNewTab: true },
-  { id: 'item-20', title: 'برنامج فيرسل', type: 'link', url: 'https://vercel.com', color: '#f97316', categoryId: 'cat-programming', createdAt: Date.now(), isFavorite: false, openInNewTab: true },
-  { id: 'item-21', title: 'ترجمة قوقل', type: 'link', url: 'https://translate.google.com', color: '#84cc16', categoryId: 'cat-programming', createdAt: Date.now(), isFavorite: false, openInNewTab: true },
-  { id: 'item-22', title: 'مكتبة نور', type: 'link', url: 'https://www.noor-book.com', color: '#f43f5e', categoryId: 'cat-programming', createdAt: Date.now(), isFavorite: false, openInNewTab: true },
-  { id: 'item-23', title: 'يوتيوب', type: 'link', url: 'https://www.youtube.com', color: '#ef4444', categoryId: 'cat-programming', createdAt: Date.now(), isFavorite: false, openInNewTab: true },
-  { id: 'item-24', title: 'فيس بوك', type: 'link', url: 'https://www.facebook.com', color: '#3b82f6', categoryId: 'cat-programming', createdAt: Date.now(), isFavorite: false, openInNewTab: true },
-  { id: 'item-25', title: 'واتساب', type: 'link', url: 'https://www.whatsapp.com', color: '#10b981', categoryId: 'cat-programming', createdAt: Date.now(), isFavorite: false, openInNewTab: true },
-
-  // Tafsir
-  { id: 'item-26', title: 'التفسير (Tafsir)', type: 'link', url: 'https://www.altafsir.com', color: '#8b5cf6', categoryId: 'cat-tafsir', createdAt: Date.now(), isFavorite: false, openInNewTab: true },
-  { id: 'item-27', title: 'الباحث القرآني', type: 'link', url: 'https://tafsir.app', color: '#0ea5e9', categoryId: 'cat-tafsir', createdAt: Date.now(), isFavorite: false, openInNewTab: true },
-  { id: 'item-28', title: 'مشروع المصحف الإلكتروني', type: 'link', url: 'https://quran.ksu.edu.sa', color: '#10b981', categoryId: 'cat-tafsir', createdAt: Date.now(), isFavorite: false, openInNewTab: true },
-
-  // Hadith
-  { id: 'item-29', title: 'الدرر السنية', type: 'link', url: 'https://dorar.net', color: '#f59e0b', categoryId: 'cat-hadith', createdAt: Date.now(), isFavorite: false, openInNewTab: true },
-  { id: 'item-30', title: 'إسلام ويب – الموسوعة الحديثية', type: 'link', url: 'https://library.islamweb.net/hadith', color: '#ec4899', categoryId: 'cat-hadith', createdAt: Date.now(), isFavorite: false, openInNewTab: true },
-  { id: 'item-31', title: 'موسوعة الحديث (إسلام أون لاين)', type: 'link', url: 'https://hadith.islamonline.net', color: '#ef4444', categoryId: 'cat-hadith', createdAt: Date.now(), isFavorite: false, openInNewTab: true },
-
-  // Fiqh
-  { id: 'item-32', title: 'إسلام ويب – مركز الفتوى', type: 'link', url: 'https://www.islamweb.net/ar/fatwa/', color: '#3b82f6', categoryId: 'cat-fiqh', createdAt: Date.now(), isFavorite: false, openInNewTab: true },
-  { id: 'item-33', title: 'الإسلام سؤال وجواب', type: 'link', url: 'https://islamqa.info/ar', color: '#6366f1', categoryId: 'cat-fiqh', createdAt: Date.now(), isFavorite: false, openInNewTab: true },
-  { id: 'item-34', title: 'دار الإفتاء المصرية', type: 'link', url: 'https://www.dar-alifta.org', color: '#14b8a6', categoryId: 'cat-fiqh', createdAt: Date.now(), isFavorite: false, openInNewTab: true },
-
-  // Admin
-  { id: 'item-35', title: 'وزارة الشؤون الإسلامية والدعوة والإرشاد', type: 'link', url: 'https://www.moriah.gov.sa', color: '#f97316', categoryId: 'cat-admin', createdAt: Date.now(), isFavorite: false, openInNewTab: true },
-  { id: 'item-36', title: 'الرئاسة العامة للبحوث العلمية والإفتاء', type: 'link', url: 'https://www.alifta.gov.sa', color: '#84cc16', categoryId: 'cat-admin', createdAt: Date.now(), isFavorite: false, openInNewTab: true },
-  { id: 'item-37', title: 'مجمع الفقه الإسلامي الدولي', type: 'link', url: 'https://www.iifa-aifi.org', color: '#f43f5e', categoryId: 'cat-admin', createdAt: Date.now(), isFavorite: false, openInNewTab: true },
-
-  // Edu
-  { id: 'item-38', title: 'أكاديمية SeekersGuidance', type: 'link', url: 'https://seekersguidance.org/ar', color: '#8b5cf6', categoryId: 'cat-edu', createdAt: Date.now(), isFavorite: false, openInNewTab: true },
-  { id: 'item-39', title: 'أكاديمية زاد (Zad Academy)', type: 'link', url: 'https://zadgroup.net', color: '#0ea5e9', categoryId: 'cat-edu', createdAt: Date.now(), isFavorite: false, openInNewTab: true },
-  { id: 'item-40', title: 'إسلام ويب – المكتبة العلمية والتعليمية', type: 'link', url: 'https://library.islamweb.net', color: '#10b981', categoryId: 'cat-edu', createdAt: Date.now(), isFavorite: false, openInNewTab: true },
 ];

@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   Home, 
@@ -34,12 +34,93 @@ import {
 } from 'lucide-react';
 import { LOGIN_PHRASE, WELCOME_MESSAGE, FOOTER_INFO, CONTACT_PHONE, WHATSAPP_LINK, DEFAULT_CATEGORIES, DEFAULT_ITEMS, THEMES, VIBRANT_COLORS } from './constants';
 import { Category, ContentItem, AppSettings, CarouselItem, Theme, Note, Task, TaskStatus } from './types';
-import { db, auth, storage, handleFirestoreError, OperationType } from './firebase';
-
-import { collection, doc, setDoc, deleteDoc, onSnapshot, query, getDocs, writeBatch } from 'firebase/firestore';
-import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
 
 // --- Components ---
+
+const Login = ({ onLogin, theme }: { onLogin: () => void, theme: Theme }) => {
+  const [input, setInput] = useState('');
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = () => {
+    navigator.clipboard.writeText(LOGIN_PHRASE);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (input.trim() === LOGIN_PHRASE) {
+      onLogin();
+    } else {
+      alert('العبارة غير صحيحة، يرجى المحاولة مرة أخرى.');
+    }
+  };
+
+  return (
+    <div className="min-h-screen flex flex-col items-center justify-center p-6 text-slate-800" style={{ background: theme.background }}>
+      <motion.div 
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="w-full max-w-md bg-white/90 backdrop-blur-xl rounded-3xl shadow-2xl p-8 border border-white/50"
+      >
+        <div className="text-center mb-8">
+          <div className="w-20 h-20 rounded-2xl mx-auto flex items-center justify-center shadow-lg mb-4" style={{ backgroundColor: theme.primary }}>
+            <Home className="text-white w-10 h-10" />
+          </div>
+          <h1 className="text-4xl font-serif font-bold mb-2" style={{ color: theme.secondary }}>رفيق المسلم</h1>
+          <p className="text-sm text-slate-600 leading-relaxed font-medium">
+            {WELCOME_MESSAGE}
+          </p>
+        </div>
+
+        <div className="mb-6">
+          <label className="block text-xs font-semibold text-slate-500 mb-2 uppercase tracking-wider">عبارة الدخول</label>
+          <div className="relative group">
+            <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 text-sm text-slate-700 leading-relaxed pr-12">
+              {LOGIN_PHRASE}
+            </div>
+            <button 
+              onClick={handleCopy}
+              className="absolute top-2 left-2 p-2 bg-white rounded-lg shadow-sm border border-slate-100 hover:bg-slate-50 transition-colors"
+            >
+              {copied ? <Check className="w-4 h-4 text-emerald-600" /> : <Copy className="w-4 h-4 text-slate-400" />}
+            </button>
+          </div>
+        </div>
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <input 
+            type="text"
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            placeholder="الصق عبارة الدخول هنا..."
+            className="w-full p-4 bg-slate-50 rounded-xl border border-slate-200 focus:ring-2 focus:ring-emerald-500 focus:border-transparent outline-none transition-all text-center"
+          />
+          <button 
+            type="submit"
+            className="w-full py-4 bg-emerald-600 text-white font-bold rounded-xl shadow-lg hover:bg-emerald-700 active:scale-95 transition-all"
+          >
+            دخول
+          </button>
+        </form>
+      </motion.div>
+
+      <footer className="mt-12 text-center max-w-md">
+        <p className="text-xs text-slate-500 mb-4">{FOOTER_INFO}</p>
+        <div className="flex gap-4 justify-center">
+          <a href={`tel:${CONTACT_PHONE}`} className="flex items-center gap-2 px-4 py-2 bg-white rounded-full shadow-sm border border-slate-100 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition-colors">
+            <Phone className="w-3 h-3 text-emerald-600" />
+            اتصال
+          </a>
+          <a href={WHATSAPP_LINK} target="_blank" rel="noreferrer" className="flex items-center gap-2 px-4 py-2 bg-white rounded-full shadow-sm border border-slate-100 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition-colors">
+            <MessageCircle className="w-3 h-3 text-emerald-600" />
+            واتساب
+          </a>
+        </div>
+      </footer>
+    </div>
+  );
+};
 
 const Carousel = ({ items, speed }: { items: CarouselItem[], speed: number }) => {
   if (!items || items.length === 0) return null;
@@ -155,30 +236,12 @@ function ContentCard({ item, onClick, onToggleFavorite }: { item: ContentItem, o
           </div>
           <h3 className="text-sm font-bold leading-tight drop-shadow-md font-display truncate">{item.title}</h3>
         </div>
-        <div className="flex items-center gap-1">
-          <button 
-            onClick={(e) => { 
-              e.stopPropagation(); 
-              localStorage.setItem('defaultProgramId', item.id);
-              // We need to trigger a state update in the parent, but since this is a component,
-              // we might need to pass a callback or just reload the page for simplicity,
-              // or dispatch a custom event. Let's just alert and reload for now, or we can just alert.
-              // Actually, we should probably pass a callback, but to avoid changing props, let's just use a custom event.
-              window.dispatchEvent(new CustomEvent('defaultProgramChanged', { detail: item.id }));
-              alert('تم تعيين هذا البرنامج كافتراضي. سيتم فتحه تلقائياً عند الدخول.');
-            }}
-            title="تعيين كبرنامج افتراضي"
-            className="p-1.5 hover:bg-white/30 rounded-full transition-colors backdrop-blur-md border border-white/10 shrink-0"
-          >
-            <Home className="w-4 h-4" />
-          </button>
-          <button 
-            onClick={(e) => { e.stopPropagation(); onToggleFavorite(item.id); }}
-            className="p-1.5 hover:bg-white/30 rounded-full transition-colors backdrop-blur-md border border-white/10 shrink-0"
-          >
-            <Heart className={`w-4 h-4 ${item.isFavorite ? 'fill-white' : ''}`} />
-          </button>
-        </div>
+        <button 
+          onClick={(e) => { e.stopPropagation(); onToggleFavorite(item.id); }}
+          className="p-1.5 hover:bg-white/30 rounded-full transition-colors backdrop-blur-md border border-white/10 shrink-0"
+        >
+          <Heart className={`w-4 h-4 ${item.isFavorite ? 'fill-white' : ''}`} />
+        </button>
       </div>
     </motion.div>
   );
@@ -187,32 +250,44 @@ function ContentCard({ item, onClick, onToggleFavorite }: { item: ContentItem, o
 // --- Main App ---
 
 export default function App() {
+  const [isLoggedIn, setIsLoggedIn] = useState(() => localStorage.getItem('isLoggedIn') === 'true');
   const [activeTab, setActiveTab] = useState<'home' | 'recent' | 'favorites' | 'settings'>('home');
   const [showQuickAdd, setShowQuickAdd] = useState(false);
   const [selectedPdfFile, setSelectedPdfFile] = useState<File | null>(null);
   const [newItemType, setNewItemType] = useState<'link' | 'pdf'>('link');
-  const [categories, setCategories] = useState<Category[]>([]);
-  const [items, setItems] = useState<ContentItem[]>([]);
-  const [recentIds, setRecentIds] = useState<string[]>([]);
-  const [settings, setSettings] = useState<AppSettings>({
-    language: 'ar',
-    themeId: 'modern-emerald',
-    carouselItems: [
-      { id: '1', text: 'اللهم صل وسلم على نبينا محمد' },
-      { id: '2', text: 'سبحان الله وبحمده سبحان الله العظيم' },
-      { id: '3', text: 'أستغفر الله العظيم وأتوب إليه' },
-      { id: '4', text: 'لا إله إلا الله وحده لا شريك له' },
-      { id: '5', text: 'الحمد لله حمداً كثيراً طيباً مباركاً فيه' },
-      { id: '6', text: 'لا حول ولا قوة إلا بالله العلي العظيم' },
-      { id: '7', text: 'حسبي الله لا إله إلا هو عليه توكلت وهو رب العرش العظيم' },
-      { id: '8', text: 'اللهم بك أصبحنا وبك أمسينا وبك نحيا وبك نموت وإليك النشور' },
-      { id: '9', text: 'رضيت بالله رباً وبالإسلام ديناً وبمحمد صلى الله عليه وسلم نبياً' },
-      { id: '10', text: 'يا حي يا قيوم برحمتك أستغيث أصلح لي شأني كله ولا تكلني إلى نفسي طرفة عين' },
-      { id: '11', text: 'اللهم إني أسألك العفو والعافية في الدنيا والآخرة' },
-      { id: '12', text: 'سبحان الله والحمد لله ولا إله إلا الله والله أكبر' }
-    ],
-    carouselSpeed: 30,
-    uid: 'default'
+  const [categories, setCategories] = useState<Category[]>(() => {
+    const saved = localStorage.getItem('categories');
+    return saved ? JSON.parse(saved) : DEFAULT_CATEGORIES;
+  });
+  const [items, setItems] = useState<ContentItem[]>(() => {
+    const saved = localStorage.getItem('items');
+    return saved ? JSON.parse(saved) : DEFAULT_ITEMS;
+  });
+  const [recentIds, setRecentIds] = useState<string[]>(() => {
+    const saved = localStorage.getItem('recentIds');
+    return saved ? JSON.parse(saved) : [];
+  });
+  const [settings, setSettings] = useState<AppSettings>(() => {
+    const saved = localStorage.getItem('settings');
+    return saved ? JSON.parse(saved) : {
+      language: 'ar',
+      themeId: 'modern-emerald',
+      carouselItems: [
+        { id: '1', text: 'اللهم صل وسلم على نبينا محمد' },
+        { id: '2', text: 'سبحان الله وبحمده سبحان الله العظيم' },
+        { id: '3', text: 'أستغفر الله العظيم وأتوب إليه' },
+        { id: '4', text: 'لا إله إلا الله وحده لا شريك له' },
+        { id: '5', text: 'الحمد لله حمداً كثيراً طيباً مباركاً فيه' },
+        { id: '6', text: 'لا حول ولا قوة إلا بالله العلي العظيم' },
+        { id: '7', text: 'حسبي الله لا إله إلا هو عليه توكلت وهو رب العرش العظيم' },
+        { id: '8', text: 'اللهم بك أصبحنا وبك أمسينا وبك نحيا وبك نموت وإليك النشور' },
+        { id: '9', text: 'رضيت بالله رباً وبالإسلام ديناً وبمحمد صلى الله عليه وسلم نبياً' },
+        { id: '10', text: 'يا حي يا قيوم برحمتك أستغيث أصلح لي شأني كله ولا تكلني إلى نفسي طرفة عين' },
+        { id: '11', text: 'اللهم إني أسألك العفو والعافية في الدنيا والآخرة' },
+        { id: '12', text: 'سبحان الله والحمد لله ولا إله إلا الله والله أكبر' }
+      ],
+      carouselSpeed: 30
+    };
   });
 
   const currentTheme = useMemo(() => THEMES.find(t => t.id === settings.themeId) || THEMES[0], [settings.themeId]);
@@ -223,161 +298,55 @@ export default function App() {
   const [targetCategoryId, setTargetCategoryId] = useState<string>('cat-default');
   const [activeModule, setActiveModule] = useState<'none' | 'notebook' | 'tasks'>('none');
 
-  const [notes, setNotes] = useState<Note[]>([]);
-  const [tasks, setTasks] = useState<Task[]>([]);
+  const [notes, setNotes] = useState<Note[]>(() => {
+    const saved = localStorage.getItem('notes');
+    return saved ? JSON.parse(saved) : [];
+  });
+  const [tasks, setTasks] = useState<Task[]>(() => {
+    const saved = localStorage.getItem('tasks');
+    return saved ? JSON.parse(saved) : [];
+  });
 
-  const [defaultProgramId, setDefaultProgramId] = useState<string | null>(localStorage.getItem('defaultProgramId'));
-  const [showDefaultBanner, setShowDefaultBanner] = useState(true);
-  const hasAutoOpened = useRef(false);
-
+  // Persistence
   useEffect(() => {
-    if (defaultProgramId && items.length > 0 && !hasAutoOpened.current) {
-      const defaultItem = items.find(i => i.id === defaultProgramId);
-      if (defaultItem) {
-        hasAutoOpened.current = true;
-        if (!defaultItem.openInNewTab) {
-          setViewingItem(defaultItem);
-        }
-      }
+    localStorage.setItem('isLoggedIn', String(isLoggedIn));
+    localStorage.setItem('categories', JSON.stringify(categories));
+    localStorage.setItem('items', JSON.stringify(items));
+    localStorage.setItem('recentIds', JSON.stringify(recentIds));
+    localStorage.setItem('settings', JSON.stringify(settings));
+    localStorage.setItem('notes', JSON.stringify(notes));
+    localStorage.setItem('tasks', JSON.stringify(tasks));
+  }, [isLoggedIn, categories, items, recentIds, settings, notes, tasks]);
+
+  // Migration: Update carousel items if they are the old defaults (only 3 items)
+  useEffect(() => {
+    if (settings.carouselItems.length === 3) {
+      const newItems = [
+        { id: '1', text: 'اللهم صل وسلم على نبينا محمد' },
+        { id: '2', text: 'سبحان الله وبحمده سبحان الله العظيم' },
+        { id: '3', text: 'أستغفر الله العظيم وأتوب إليه' },
+        { id: '4', text: 'لا إله إلا الله وحده لا شريك له' },
+        { id: '5', text: 'الحمد لله حمداً كثيراً طيباً مباركاً فيه' },
+        { id: '6', text: 'لا حول ولا قوة إلا بالله العلي العظيم' },
+        { id: '7', text: 'حسبي الله لا إله إلا هو عليه توكلت وهو رب العرش العظيم' },
+        { id: '8', text: 'اللهم بك أصبحنا وبك أمسينا وبك نحيا وبك نموت وإليك النشور' },
+        { id: '9', text: 'رضيت بالله رباً وبالإسلام ديناً وبمحمد صلى الله عليه وسلم نبياً' },
+        { id: '10', text: 'يا حي يا قيوم برحمتك أستغيث أصلح لي شأني كله ولا تكلني إلى نفسي طرفة عين' },
+        { id: '11', text: 'اللهم إني أسألك العفو والعافية في الدنيا والآخرة' },
+        { id: '12', text: 'سبحان الله والحمد لله ولا إله إلا الله والله أكبر' }
+      ];
+      setSettings(prev => ({ ...prev, carouselItems: newItems }));
     }
-  }, [defaultProgramId, items]);
-
-  useEffect(() => {
-    const handleDefaultProgramChanged = (e: Event) => {
-      const customEvent = e as CustomEvent<string>;
-      setDefaultProgramId(customEvent.detail);
-    };
-    window.addEventListener('defaultProgramChanged', handleDefaultProgramChanged);
-    return () => window.removeEventListener('defaultProgramChanged', handleDefaultProgramChanged);
   }, []);
 
+  // Migration: Update default category name
   useEffect(() => {
-    const unsubCategories = onSnapshot(collection(db, 'categories'), (snapshot) => {
-      const cats: Category[] = [];
-      snapshot.forEach(doc => cats.push(doc.data() as Category));
-      if (cats.length === 0) {
-        // Initialize default categories
-        const batch = writeBatch(db);
-        DEFAULT_CATEGORIES.forEach(cat => {
-          batch.set(doc(db, 'categories', cat.id), { ...cat, uid: 'default' });
-        });
-        batch.commit().catch(error => handleFirestoreError(error, OperationType.WRITE, 'categories'));
-      } else {
-        setCategories(cats);
-        // Check for missing default categories and add them
-        const batch = writeBatch(db);
-        let needsUpdate = false;
-
-        const missingCats = DEFAULT_CATEGORIES.filter(dc => !cats.some(c => c.id === dc.id));
-        if (missingCats.length > 0) {
-          missingCats.forEach(cat => {
-            batch.set(doc(db, 'categories', cat.id), { ...cat, uid: 'default' });
-          });
-          needsUpdate = true;
-        }
-
-        DEFAULT_CATEGORIES.forEach(dc => {
-          const existing = cats.find(c => c.id === dc.id);
-          if (existing && (existing.parentId !== dc.parentId || existing.name !== dc.name || existing.color !== dc.color)) {
-            batch.update(doc(db, 'categories', dc.id), { 
-              parentId: dc.parentId,
-              name: dc.name,
-              color: dc.color
-            });
-            needsUpdate = true;
-          }
-        });
-
-        // Migrate any custom root categories to cat-useful-sites
-        cats.forEach(c => {
-          if (c.parentId === null && c.id !== 'cat-default' && c.id !== 'cat-useful-sites') {
-            batch.update(doc(db, 'categories', c.id), { parentId: 'cat-useful-sites' });
-            needsUpdate = true;
-          }
-        });
-
-        if (needsUpdate) {
-          batch.commit().catch(error => handleFirestoreError(error, OperationType.WRITE, 'categories-update'));
-        }
-      }
-    }, (error) => handleFirestoreError(error, OperationType.GET, 'categories'));
-
-    const unsubItems = onSnapshot(collection(db, 'items'), (snapshot) => {
-      const itms: ContentItem[] = [];
-      snapshot.forEach(doc => itms.push(doc.data() as ContentItem));
-      if (itms.length === 0) {
-        // Initialize default items
-        const batch = writeBatch(db);
-        DEFAULT_ITEMS.forEach(item => {
-          batch.set(doc(db, 'items', item.id), { ...item, uid: 'default' });
-        });
-        batch.commit().catch(error => handleFirestoreError(error, OperationType.WRITE, 'items'));
-      } else {
-        setItems(itms);
-        // Check for missing default items and add them
-        const batch = writeBatch(db);
-        let needsUpdate = false;
-
-        const missingItems = DEFAULT_ITEMS.filter(di => !itms.some(i => i.id === di.id));
-        if (missingItems.length > 0) {
-          missingItems.forEach(item => {
-            batch.set(doc(db, 'items', item.id), { ...item, uid: 'default' });
-          });
-          needsUpdate = true;
-        }
-
-        DEFAULT_ITEMS.forEach(di => {
-          const existing = itms.find(i => i.id === di.id);
-          if (existing && existing.color !== di.color) {
-            batch.update(doc(db, 'items', di.id), { color: di.color });
-            needsUpdate = true;
-          }
-        });
-
-        if (needsUpdate) {
-          batch.commit().catch(error => handleFirestoreError(error, OperationType.WRITE, 'items-update'));
-        }
-      }
-    }, (error) => handleFirestoreError(error, OperationType.GET, 'items'));
-
-    const unsubNotes = onSnapshot(collection(db, 'notes'), (snapshot) => {
-      const nts: Note[] = [];
-      snapshot.forEach(doc => nts.push(doc.data() as Note));
-      setNotes(nts);
-    }, (error) => handleFirestoreError(error, OperationType.GET, 'notes'));
-
-    const unsubTasks = onSnapshot(collection(db, 'tasks'), (snapshot) => {
-      const tsks: Task[] = [];
-      snapshot.forEach(doc => tsks.push(doc.data() as Task));
-      setTasks(tsks);
-    }, (error) => handleFirestoreError(error, OperationType.GET, 'tasks'));
-
-    const unsubSettings = onSnapshot(doc(db, 'settings', 'global'), (docSnap) => {
-      if (docSnap.exists()) {
-        setSettings(docSnap.data() as AppSettings);
-      } else {
-        setDoc(doc(db, 'settings', 'global'), settings).catch(error => handleFirestoreError(error, OperationType.WRITE, 'settings/global'));
-      }
-    }, (error) => handleFirestoreError(error, OperationType.GET, 'settings/global'));
-
-    return () => {
-      unsubCategories();
-      unsubItems();
-      unsubNotes();
-      unsubTasks();
-      unsubSettings();
-    };
+    setCategories(prev => prev.map(cat => 
+      (cat.id === 'cat-default' && cat.name === 'الروابط الافتراضية') 
+        ? { ...cat, name: 'برامج نافعة لك' } 
+        : cat
+    ));
   }, []);
-
-  const updateSettings = async (newSettings: Partial<AppSettings>) => {
-    const updated = { ...settings, ...newSettings };
-    setSettings(updated);
-    try {
-      await setDoc(doc(db, 'settings', 'global'), updated);
-    } catch (error) {
-      handleFirestoreError(error, OperationType.WRITE, 'settings/global');
-    }
-  };
 
   const allCarouselItems = useMemo(() => {
     const taskItems = tasks
@@ -386,43 +355,20 @@ export default function App() {
     return [...settings.carouselItems, ...taskItems];
   }, [settings.carouselItems, tasks]);
 
-  const handleItemClick = async (item: ContentItem) => {
-    setRecentIds(prev => [item.id, ...prev.filter(id => id !== item.id)].slice(0, 10));
-    
-    if (item.openInNewTab) {
-      window.open(item.url, '_blank');
-      return;
-    }
+  const handleLogin = () => setIsLoggedIn(true);
 
-    if (item.url.startsWith('storage://')) {
-      const fileId = item.url.replace('storage://', '');
-      try {
-        const fileRef = ref(storage, `files/${fileId}`);
-        const downloadUrl = await getDownloadURL(fileRef);
-        window.open(downloadUrl, '_blank');
-      } catch (err) {
-        console.error('Error loading file from Storage:', err);
-        alert('الملف غير موجود أو تم حذفه من السحابة');
-      }
-    } else if (item.type === 'link' || item.url.startsWith('http') || item.url.startsWith('blob:') || item.url.startsWith('data:')) {
-      setViewingItem(item);
+  const handleItemClick = (item: ContentItem) => {
+    setRecentIds(prev => [item.id, ...prev.filter(id => id !== item.id)].slice(0, 10));
+    if (item.type === 'link' || item.url.startsWith('http') || item.url.startsWith('blob:') || item.url.startsWith('data:')) {
+      window.open(item.url, '_blank');
     } else {
       // Try to handle local file paths or just open in new tab
       window.open(item.url, '_blank');
     }
   };
 
-  const toggleFavorite = async (id: string) => {
-    const item = items.find(i => i.id === id);
-    if (item) {
-      const updatedItem = { ...item, isFavorite: !item.isFavorite };
-      setItems(prev => prev.map(i => i.id === id ? updatedItem : i));
-      try {
-        await setDoc(doc(db, 'items', id), updatedItem);
-      } catch (error) {
-        handleFirestoreError(error, OperationType.WRITE, `items/${id}`);
-      }
-    }
+  const toggleFavorite = (id: string) => {
+    setItems(prev => prev.map(item => item.id === id ? { ...item, isFavorite: !item.isFavorite } : item));
   };
 
   const filteredItems = useMemo(() => {
@@ -436,18 +382,10 @@ export default function App() {
   }, [activeTab, items, recentIds, currentCategory]);
 
   const activeCategories = useMemo(() => {
-    const filtered = categories.filter(c => c.parentId === currentCategory);
-    // Sort based on DEFAULT_CATEGORIES order if they are default categories
-    return [...filtered].sort((a, b) => {
-      const indexA = DEFAULT_CATEGORIES.findIndex(dc => dc.id === a.id);
-      const indexB = DEFAULT_CATEGORIES.findIndex(dc => dc.id === b.id);
-      
-      if (indexA !== -1 && indexB !== -1) return indexA - indexB;
-      if (indexA !== -1) return -1;
-      if (indexB !== -1) return 1;
-      return 0;
-    });
+    return categories.filter(c => c.parentId === currentCategory);
   }, [categories, currentCategory]);
+
+  if (!isLoggedIn) return <Login onLogin={handleLogin} theme={currentTheme} />;
 
   if (viewingItem) {
     return (
@@ -536,39 +474,6 @@ export default function App() {
 
   return (
     <div className="min-h-screen flex flex-col pb-32 transition-all duration-500" style={{ background: currentTheme.background }}>
-      {/* Auto Redirect Banner */}
-      <AnimatePresence>
-        {showDefaultBanner && defaultProgramId && items.find(i => i.id === defaultProgramId)?.openInNewTab && (
-          <motion.div 
-            initial={{ opacity: 0, y: -50 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -50 }}
-            className="fixed top-0 left-0 w-full z-50 bg-emerald-600 text-white p-4 shadow-xl flex items-center justify-between"
-          >
-            <div className="flex items-center gap-3">
-              <span className="font-bold">البرنامج الافتراضي: {items.find(i => i.id === defaultProgramId)?.title}</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <button 
-                onClick={() => {
-                  handleItemClick(items.find(i => i.id === defaultProgramId)!);
-                  setShowDefaultBanner(false);
-                }}
-                className="px-4 py-1.5 bg-white text-emerald-600 rounded-lg font-bold transition-colors"
-              >
-                فتح الآن
-              </button>
-              <button 
-                onClick={() => setShowDefaultBanner(false)}
-                className="px-4 py-1.5 bg-white/20 hover:bg-white/30 rounded-lg font-bold transition-colors"
-              >
-                إخفاء
-              </button>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
       {/* Header */}
       <header className="sticky top-0 z-30 bg-white/60 backdrop-blur-xl border-b border-white/20 px-6 py-4 flex items-center justify-between shadow-sm">
         <div className="flex items-center gap-3">
@@ -851,38 +756,6 @@ export default function App() {
                 </AnimatePresence>
               </section>
 
-              {/* Default Program Management */}
-              <section className="bg-white/40 backdrop-blur-md p-4 rounded-3xl border border-white/20 shadow-sm">
-                <h3 className="text-lg font-display font-bold flex items-center gap-2 mb-4">
-                  <Home className="w-5 h-5" style={{ color: currentTheme.primary }} />
-                  البرنامج الافتراضي
-                </h3>
-                {defaultProgramId ? (
-                  <div className="flex flex-col gap-3">
-                    <p className="text-sm text-slate-600">
-                      يوجد برنامج افتراضي معين حالياً. سيتم فتحه تلقائياً عند الدخول.
-                    </p>
-                    <div className="p-3 bg-slate-50 border rounded-xl text-xs text-slate-500 truncate" dir="ltr">
-                      {items.find(i => i.id === defaultProgramId)?.title || 'برنامج غير معروف'}
-                    </div>
-                    <button 
-                      onClick={() => {
-                        localStorage.removeItem('defaultProgramId');
-                        setDefaultProgramId(null);
-                        alert('تم إزالة البرنامج الافتراضي بنجاح.');
-                      }}
-                      className="w-full py-3 bg-red-50 text-red-600 rounded-xl text-sm font-bold shadow-sm border border-red-100 hover:bg-red-100 transition-colors"
-                    >
-                      إلغاء تعيين البرنامج الافتراضي
-                    </button>
-                  </div>
-                ) : (
-                  <p className="text-sm text-slate-500">
-                    لا يوجد برنامج افتراضي. يمكنك تعيين أي برنامج كافتراضي من خلال النقر على أيقونة المنزل (الرئيسية) بجانبه.
-                  </p>
-                )}
-              </section>
-
               {/* Carousel Management */}
               <section>
                 <div className="flex items-center justify-between mb-4">
@@ -960,23 +833,17 @@ export default function App() {
                       className="flex-1 p-2 bg-white border rounded-lg text-sm"
                     />
                     <button 
-                      onClick={async () => {
+                      onClick={() => {
                         const name = (document.getElementById('new-cat-name') as HTMLInputElement).value;
                         if (!name) return;
-                        const catId = Date.now().toString();
                         const newCat: Category = {
-                          id: catId,
+                          id: Date.now().toString(),
                           name,
                           parentId: currentCategory,
-                          color: VIBRANT_COLORS[Math.floor(Math.random() * VIBRANT_COLORS.length)],
-                          uid: 'default'
+                          color: '#' + Math.floor(Math.random()*16777215).toString(16)
                         };
-                        try {
-                          await setDoc(doc(db, 'categories', catId), newCat);
-                          (document.getElementById('new-cat-name') as HTMLInputElement).value = '';
-                        } catch (error) {
-                          handleFirestoreError(error, OperationType.WRITE, `categories/${catId}`);
-                        }
+                        setCategories([...categories, newCat]);
+                        (document.getElementById('new-cat-name') as HTMLInputElement).value = '';
                       }}
                       className="px-4 py-2 bg-emerald-600 text-white rounded-lg text-sm font-bold"
                     >
@@ -1026,8 +893,10 @@ export default function App() {
                             onChange={(e) => {
                               const file = e.target.files?.[0];
                               if (file) {
-                                setSelectedPdfFile(file);
-                                (document.getElementById('new-item-url') as HTMLInputElement).value = file.name;
+                                // In a real app we'd use File System Access API or store a blob
+                                // For this request, we'll store the blob URL which works for the session
+                                const blobUrl = URL.createObjectURL(file);
+                                (document.getElementById('new-item-url') as HTMLInputElement).value = blobUrl;
                                 if (!(document.getElementById('new-item-title') as HTMLInputElement).value) {
                                   (document.getElementById('new-item-title') as HTMLInputElement).value = file.name;
                                 }
@@ -1041,47 +910,27 @@ export default function App() {
                     <button 
                       onClick={async () => {
                         const title = (document.getElementById('new-item-title') as HTMLInputElement).value;
-                        let url = (document.getElementById('new-item-url') as HTMLInputElement).value;
+                        const url = (document.getElementById('new-item-url') as HTMLInputElement).value;
                         
-                        if (!title || (!url && newItemType === 'link') || (!selectedPdfFile && newItemType === 'pdf')) {
-                          alert('يرجى إدخال العنوان والرابط أو اختيار ملف');
+                        if (!title || !url) {
+                          alert('يرجى إدخال العنوان والرابط');
                           return;
                         }
 
-                        const itemId = Date.now().toString();
-
-                        if (newItemType === 'pdf' && selectedPdfFile) {
-                          try {
-                            const fileRef = ref(storage, `files/${itemId}`);
-                            await uploadBytes(fileRef, selectedPdfFile);
-                            url = `storage://${itemId}`;
-                          } catch (err) {
-                            console.error('Error saving file:', err);
-                            alert('حدث خطأ أثناء حفظ الملف');
-                            return;
-                          }
-                        }
-
                         const newItem: ContentItem = {
-                          id: itemId,
+                          id: Date.now().toString(),
                           title,
                           url,
                           type: newItemType,
                           color: VIBRANT_COLORS[Math.floor(Math.random() * VIBRANT_COLORS.length)],
                           categoryId: targetCategoryId,
                           createdAt: Date.now(),
-                          isFavorite: false,
-                          uid: 'default'
+                          isFavorite: false
                         };
-                        
-                        try {
-                          await setDoc(doc(db, 'items', itemId), newItem);
-                          (document.getElementById('new-item-title') as HTMLInputElement).value = '';
-                          (document.getElementById('new-item-url') as HTMLInputElement).value = '';
-                          setSelectedPdfFile(null);
-                        } catch (error) {
-                          handleFirestoreError(error, OperationType.WRITE, `items/${itemId}`);
-                        }
+                        setItems([...items, newItem]);
+                        (document.getElementById('new-item-title') as HTMLInputElement).value = '';
+                        (document.getElementById('new-item-url') as HTMLInputElement).value = '';
+                        setSelectedPdfFile(null);
                       }}
                       className="w-full py-3 bg-emerald-600 text-white rounded-xl text-sm font-bold shadow-lg"
                     >
@@ -1101,22 +950,7 @@ export default function App() {
                           <span className="font-bold text-slate-700">{cat.name} (قسم)</span>
                         </div>
                         <button 
-                          onClick={async () => {
-                            try {
-                              await deleteDoc(doc(db, 'categories', cat.id));
-                              // Also delete items in this category
-                              const itemsToDelete = items.filter(i => i.categoryId === cat.id);
-                              for (const item of itemsToDelete) {
-                                await deleteDoc(doc(db, 'items', item.id));
-                                if (item.url.startsWith('storage://')) {
-                                  const fileRef = ref(storage, `files/${item.url.replace('storage://', '')}`);
-                                  deleteObject(fileRef).catch(console.error);
-                                }
-                              }
-                            } catch (error) {
-                              handleFirestoreError(error, OperationType.DELETE, `categories/${cat.id}`);
-                            }
-                          }}
+                          onClick={() => setCategories(categories.filter(c => c.id !== cat.id))}
                           className="p-2 text-red-500 hover:bg-red-50 rounded-lg"
                         >
                           <Trash2 className="w-4 h-4" />
@@ -1130,17 +964,7 @@ export default function App() {
                           <span className="text-sm text-slate-700">{item.title}</span>
                         </div>
                         <button 
-                          onClick={async () => {
-                            try {
-                              await deleteDoc(doc(db, 'items', item.id));
-                              if (item.url.startsWith('storage://')) {
-                                const fileRef = ref(storage, `files/${item.url.replace('storage://', '')}`);
-                                deleteObject(fileRef).catch(console.error);
-                              }
-                            } catch (error) {
-                              handleFirestoreError(error, OperationType.DELETE, `items/${item.id}`);
-                            }
-                          }}
+                          onClick={() => setItems(items.filter(i => i.id !== item.id))}
                           className="p-2 text-red-500 hover:bg-red-50 rounded-lg"
                         >
                           <Trash2 className="w-4 h-4" />
@@ -1150,6 +974,17 @@ export default function App() {
                   </div>
                 </div>
               </section>
+
+              {/* Logout */}
+              <button 
+                onClick={() => {
+                  setIsLoggedIn(false);
+                  localStorage.removeItem('isLoggedIn');
+                }}
+                className="w-full py-4 bg-slate-100 text-slate-600 rounded-xl font-bold"
+              >
+                تسجيل الخروج
+              </button>
             </div>
           </motion.div>
         )}
@@ -1181,22 +1016,16 @@ export default function App() {
                   className="w-full h-40 bg-transparent border-none focus:ring-0 text-slate-700 font-medium resize-none"
                 />
                 <button 
-                  onClick={async () => {
+                  onClick={() => {
                     const content = (document.getElementById('note-content') as HTMLTextAreaElement).value;
                     if (!content) return;
-                    const noteId = Date.now().toString();
                     const newNote: Note = {
-                      id: noteId,
+                      id: Date.now().toString(),
                       content,
-                      createdAt: Date.now(),
-                      uid: 'default'
+                      createdAt: Date.now()
                     };
-                    try {
-                      await setDoc(doc(db, 'notes', noteId), newNote);
-                      (document.getElementById('note-content') as HTMLTextAreaElement).value = '';
-                    } catch (error) {
-                      handleFirestoreError(error, OperationType.WRITE, `notes/${noteId}`);
-                    }
+                    setNotes([newNote, ...notes]);
+                    (document.getElementById('note-content') as HTMLTextAreaElement).value = '';
                   }}
                   className="w-full mt-4 py-3 bg-amber-600 text-white rounded-xl font-bold shadow-lg flex items-center justify-center gap-2"
                 >
@@ -1211,16 +1040,7 @@ export default function App() {
                   <div key={note.id} className="p-4 bg-white border border-slate-100 rounded-2xl shadow-sm space-y-3">
                     <div className="flex justify-between items-center text-[10px] text-slate-400 font-bold">
                       <span>{new Date(note.createdAt).toLocaleString('ar-EG')}</span>
-                      <button 
-                        onClick={async () => {
-                          try {
-                            await deleteDoc(doc(db, 'notes', note.id));
-                          } catch (error) {
-                            handleFirestoreError(error, OperationType.DELETE, `notes/${note.id}`);
-                          }
-                        }} 
-                        className="text-red-400"
-                      >
+                      <button onClick={() => setNotes(notes.filter(n => n.id !== note.id))} className="text-red-400">
                         <Trash2 className="w-4 h-4" />
                       </button>
                     </div>
@@ -1278,27 +1098,21 @@ export default function App() {
                   />
                 </div>
                 <button 
-                  onClick={async () => {
+                  onClick={() => {
                     const title = (document.getElementById('task-title') as HTMLInputElement).value;
                     const date = (document.getElementById('task-date') as HTMLInputElement).value;
                     if (!title || !date) return;
-                    const taskId = Date.now().toString();
                     const newTask: Task = {
-                      id: taskId,
+                      id: Date.now().toString(),
                       title,
                       date,
                       status: 'none',
                       showInCarousel: false,
-                      createdAt: Date.now(),
-                      uid: 'default'
+                      createdAt: Date.now()
                     };
-                    try {
-                      await setDoc(doc(db, 'tasks', taskId), newTask);
-                      (document.getElementById('task-title') as HTMLInputElement).value = '';
-                      (document.getElementById('task-date') as HTMLInputElement).value = '';
-                    } catch (error) {
-                      handleFirestoreError(error, OperationType.WRITE, `tasks/${taskId}`);
-                    }
+                    setTasks([newTask, ...tasks]);
+                    (document.getElementById('task-title') as HTMLInputElement).value = '';
+                    (document.getElementById('task-date') as HTMLInputElement).value = '';
                   }}
                   className="w-full py-3 bg-indigo-600 text-white rounded-xl font-bold shadow-lg"
                 >
@@ -1320,28 +1134,15 @@ export default function App() {
                       </div>
                       <div className="flex items-center gap-2">
                         <button 
-                          onClick={async () => {
-                            try {
-                              await setDoc(doc(db, 'tasks', task.id), { ...task, showInCarousel: !task.showInCarousel });
-                            } catch (error) {
-                              handleFirestoreError(error, OperationType.WRITE, `tasks/${task.id}`);
-                            }
+                          onClick={() => {
+                            setTasks(tasks.map(t => t.id === task.id ? { ...t, showInCarousel: !t.showInCarousel } : t));
                           }}
                           className={`p-2 rounded-lg transition-colors ${task.showInCarousel ? 'bg-amber-100 text-amber-600' : 'bg-slate-50 text-slate-400'}`}
                           title="إظهار في الشريط المتحرك"
                         >
                           <Share2 className="w-4 h-4" />
                         </button>
-                        <button 
-                          onClick={async () => {
-                            try {
-                              await deleteDoc(doc(db, 'tasks', task.id));
-                            } catch (error) {
-                              handleFirestoreError(error, OperationType.DELETE, `tasks/${task.id}`);
-                            }
-                          }} 
-                          className="p-2 text-red-400"
-                        >
+                        <button onClick={() => setTasks(tasks.filter(t => t.id !== task.id))} className="p-2 text-red-400">
                           <Trash2 className="w-4 h-4" />
                         </button>
                       </div>
@@ -1349,18 +1150,14 @@ export default function App() {
                     
                     <div className="flex items-center justify-between pt-2 border-t border-slate-50">
                       <button 
-                        onClick={async () => {
+                        onClick={() => {
                           const nextStatus: Record<TaskStatus, TaskStatus> = {
                             'none': 'in-progress',
                             'in-progress': 'completed',
                             'completed': 'not-completed',
                             'not-completed': 'none'
                           };
-                          try {
-                            await setDoc(doc(db, 'tasks', task.id), { ...task, status: nextStatus[task.status] });
-                          } catch (error) {
-                            handleFirestoreError(error, OperationType.WRITE, `tasks/${task.id}`);
-                          }
+                          setTasks(tasks.map(t => t.id === task.id ? { ...t, status: nextStatus[t.status] } : t));
                         }}
                         className={`px-4 py-2 rounded-xl text-xs font-bold transition-all border-2 ${
                           task.status === 'in-progress' ? 'bg-blue-50 border-blue-200 text-blue-600' :
