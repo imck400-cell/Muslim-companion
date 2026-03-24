@@ -269,6 +269,15 @@ export default function App() {
         batch.commit().catch(error => handleFirestoreError(error, OperationType.WRITE, 'items'));
       } else {
         setItems(itms);
+        // Check for missing default items and add them
+        const missingItems = DEFAULT_ITEMS.filter(di => !itms.some(i => i.id === di.id));
+        if (missingItems.length > 0) {
+          const batch = writeBatch(db);
+          missingItems.forEach(item => {
+            batch.set(doc(db, 'items', item.id), { ...item, uid: 'default' });
+          });
+          batch.commit().catch(error => handleFirestoreError(error, OperationType.WRITE, 'items-update'));
+        }
       }
     }, (error) => handleFirestoreError(error, OperationType.GET, 'items'));
 
@@ -320,6 +329,12 @@ export default function App() {
 
   const handleItemClick = async (item: ContentItem) => {
     setRecentIds(prev => [item.id, ...prev.filter(id => id !== item.id)].slice(0, 10));
+    
+    if (item.openInNewTab) {
+      window.open(item.url, '_blank');
+      return;
+    }
+
     if (item.url.startsWith('storage://')) {
       const fileId = item.url.replace('storage://', '');
       try {
@@ -331,7 +346,7 @@ export default function App() {
         alert('الملف غير موجود أو تم حذفه من السحابة');
       }
     } else if (item.type === 'link' || item.url.startsWith('http') || item.url.startsWith('blob:') || item.url.startsWith('data:')) {
-      window.open(item.url, '_blank');
+      setViewingItem(item);
     } else {
       // Try to handle local file paths or just open in new tab
       window.open(item.url, '_blank');

@@ -11,6 +11,7 @@ export interface ContentItem {
   createdAt: number;
   isFavorite: boolean;
   uid?: string;
+  openInNewTab?: boolean;
 }
 
 export interface Category {
