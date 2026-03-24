@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   Home, 
@@ -36,91 +36,6 @@ import { LOGIN_PHRASE, WELCOME_MESSAGE, FOOTER_INFO, CONTACT_PHONE, WHATSAPP_LIN
 import { Category, ContentItem, AppSettings, CarouselItem, Theme, Note, Task, TaskStatus } from './types';
 
 // --- Components ---
-
-const Login = ({ onLogin, theme }: { onLogin: () => void, theme: Theme }) => {
-  const [input, setInput] = useState('');
-  const [copied, setCopied] = useState(false);
-
-  const handleCopy = () => {
-    navigator.clipboard.writeText(LOGIN_PHRASE);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (input.trim() === LOGIN_PHRASE) {
-      onLogin();
-    } else {
-      alert('العبارة غير صحيحة، يرجى المحاولة مرة أخرى.');
-    }
-  };
-
-  return (
-    <div className="min-h-screen flex flex-col items-center justify-center p-6 text-slate-800" style={{ background: theme.background }}>
-      <motion.div 
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="w-full max-w-md bg-white/90 backdrop-blur-xl rounded-3xl shadow-2xl p-8 border border-white/50"
-      >
-        <div className="text-center mb-8">
-          <div className="w-20 h-20 rounded-2xl mx-auto flex items-center justify-center shadow-lg mb-4" style={{ backgroundColor: theme.primary }}>
-            <Home className="text-white w-10 h-10" />
-          </div>
-          <h1 className="text-4xl font-serif font-bold mb-2" style={{ color: theme.secondary }}>رفيق المسلم</h1>
-          <p className="text-sm text-slate-600 leading-relaxed font-medium">
-            {WELCOME_MESSAGE}
-          </p>
-        </div>
-
-        <div className="mb-6">
-          <label className="block text-xs font-semibold text-slate-500 mb-2 uppercase tracking-wider">عبارة الدخول</label>
-          <div className="relative group">
-            <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 text-sm text-slate-700 leading-relaxed pr-12">
-              {LOGIN_PHRASE}
-            </div>
-            <button 
-              onClick={handleCopy}
-              className="absolute top-2 left-2 p-2 bg-white rounded-lg shadow-sm border border-slate-100 hover:bg-slate-50 transition-colors"
-            >
-              {copied ? <Check className="w-4 h-4 text-emerald-600" /> : <Copy className="w-4 h-4 text-slate-400" />}
-            </button>
-          </div>
-        </div>
-
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <input 
-            type="text"
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            placeholder="الصق عبارة الدخول هنا..."
-            className="w-full p-4 bg-slate-50 rounded-xl border border-slate-200 focus:ring-2 focus:ring-emerald-500 focus:border-transparent outline-none transition-all text-center"
-          />
-          <button 
-            type="submit"
-            className="w-full py-4 bg-emerald-600 text-white font-bold rounded-xl shadow-lg hover:bg-emerald-700 active:scale-95 transition-all"
-          >
-            دخول
-          </button>
-        </form>
-      </motion.div>
-
-      <footer className="mt-12 text-center max-w-md">
-        <p className="text-xs text-slate-500 mb-4">{FOOTER_INFO}</p>
-        <div className="flex gap-4 justify-center">
-          <a href={`tel:${CONTACT_PHONE}`} className="flex items-center gap-2 px-4 py-2 bg-white rounded-full shadow-sm border border-slate-100 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition-colors">
-            <Phone className="w-3 h-3 text-emerald-600" />
-            اتصال
-          </a>
-          <a href={WHATSAPP_LINK} target="_blank" rel="noreferrer" className="flex items-center gap-2 px-4 py-2 bg-white rounded-full shadow-sm border border-slate-100 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition-colors">
-            <MessageCircle className="w-3 h-3 text-emerald-600" />
-            واتساب
-          </a>
-        </div>
-      </footer>
-    </div>
-  );
-};
 
 const Carousel = ({ items, speed }: { items: CarouselItem[], speed: number }) => {
   if (!items || items.length === 0) return null;
@@ -236,12 +151,30 @@ function ContentCard({ item, onClick, onToggleFavorite }: { item: ContentItem, o
           </div>
           <h3 className="text-sm font-bold leading-tight drop-shadow-md font-display truncate">{item.title}</h3>
         </div>
-        <button 
-          onClick={(e) => { e.stopPropagation(); onToggleFavorite(item.id); }}
-          className="p-1.5 hover:bg-white/30 rounded-full transition-colors backdrop-blur-md border border-white/10 shrink-0"
-        >
-          <Heart className={`w-4 h-4 ${item.isFavorite ? 'fill-white' : ''}`} />
-        </button>
+        <div className="flex items-center gap-1">
+          <button 
+            onClick={(e) => { 
+              e.stopPropagation(); 
+              localStorage.setItem('defaultProgramId', item.id);
+              // We need to trigger a state update in the parent, but since this is a component,
+              // we might need to pass a callback or just reload the page for simplicity,
+              // or dispatch a custom event. Let's just alert and reload for now, or we can just alert.
+              // Actually, we should probably pass a callback, but to avoid changing props, let's just use a custom event.
+              window.dispatchEvent(new CustomEvent('defaultProgramChanged', { detail: item.id }));
+              alert('تم تعيين هذا البرنامج كافتراضي. سيتم فتحه تلقائياً عند الدخول.');
+            }}
+            title="تعيين كبرنامج افتراضي"
+            className="p-1.5 hover:bg-white/30 rounded-full transition-colors backdrop-blur-md border border-white/10 shrink-0"
+          >
+            <Home className="w-4 h-4" />
+          </button>
+          <button 
+            onClick={(e) => { e.stopPropagation(); onToggleFavorite(item.id); }}
+            className="p-1.5 hover:bg-white/30 rounded-full transition-colors backdrop-blur-md border border-white/10 shrink-0"
+          >
+            <Heart className={`w-4 h-4 ${item.isFavorite ? 'fill-white' : ''}`} />
+          </button>
+        </div>
       </div>
     </motion.div>
   );
@@ -250,44 +183,33 @@ function ContentCard({ item, onClick, onToggleFavorite }: { item: ContentItem, o
 // --- Main App ---
 
 export default function App() {
-  const [isLoggedIn, setIsLoggedIn] = useState(() => localStorage.getItem('isLoggedIn') === 'true');
   const [activeTab, setActiveTab] = useState<'home' | 'recent' | 'favorites' | 'settings'>('home');
+  const [asyncError, setAsyncError] = useState<Error | null>(null);
   const [showQuickAdd, setShowQuickAdd] = useState(false);
   const [selectedPdfFile, setSelectedPdfFile] = useState<File | null>(null);
   const [newItemType, setNewItemType] = useState<'link' | 'pdf'>('link');
-  const [categories, setCategories] = useState<Category[]>(() => {
-    const saved = localStorage.getItem('categories');
-    return saved ? JSON.parse(saved) : DEFAULT_CATEGORIES;
-  });
-  const [items, setItems] = useState<ContentItem[]>(() => {
-    const saved = localStorage.getItem('items');
-    return saved ? JSON.parse(saved) : DEFAULT_ITEMS;
-  });
-  const [recentIds, setRecentIds] = useState<string[]>(() => {
-    const saved = localStorage.getItem('recentIds');
-    return saved ? JSON.parse(saved) : [];
-  });
-  const [settings, setSettings] = useState<AppSettings>(() => {
-    const saved = localStorage.getItem('settings');
-    return saved ? JSON.parse(saved) : {
-      language: 'ar',
-      themeId: 'modern-emerald',
-      carouselItems: [
-        { id: '1', text: 'اللهم صل وسلم على نبينا محمد' },
-        { id: '2', text: 'سبحان الله وبحمده سبحان الله العظيم' },
-        { id: '3', text: 'أستغفر الله العظيم وأتوب إليه' },
-        { id: '4', text: 'لا إله إلا الله وحده لا شريك له' },
-        { id: '5', text: 'الحمد لله حمداً كثيراً طيباً مباركاً فيه' },
-        { id: '6', text: 'لا حول ولا قوة إلا بالله العلي العظيم' },
-        { id: '7', text: 'حسبي الله لا إله إلا هو عليه توكلت وهو رب العرش العظيم' },
-        { id: '8', text: 'اللهم بك أصبحنا وبك أمسينا وبك نحيا وبك نموت وإليك النشور' },
-        { id: '9', text: 'رضيت بالله رباً وبالإسلام ديناً وبمحمد صلى الله عليه وسلم نبياً' },
-        { id: '10', text: 'يا حي يا قيوم برحمتك أستغيث أصلح لي شأني كله ولا تكلني إلى نفسي طرفة عين' },
-        { id: '11', text: 'اللهم إني أسألك العفو والعافية في الدنيا والآخرة' },
-        { id: '12', text: 'سبحان الله والحمد لله ولا إله إلا الله والله أكبر' }
-      ],
-      carouselSpeed: 30
-    };
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [items, setItems] = useState<ContentItem[]>([]);
+  const [recentIds, setRecentIds] = useState<string[]>([]);
+  const [settings, setSettings] = useState<AppSettings>({
+    language: 'ar',
+    themeId: 'modern-emerald',
+    carouselItems: [
+      { id: '1', text: 'اللهم صل وسلم على نبينا محمد' },
+      { id: '2', text: 'سبحان الله وبحمده سبحان الله العظيم' },
+      { id: '3', text: 'أستغفر الله العظيم وأتوب إليه' },
+      { id: '4', text: 'لا إله إلا الله وحده لا شريك له' },
+      { id: '5', text: 'الحمد لله حمداً كثيراً طيباً مباركاً فيه' },
+      { id: '6', text: 'لا حول ولا قوة إلا بالله العلي العظيم' },
+      { id: '7', text: 'حسبي الله لا إله إلا هو عليه توكلت وهو رب العرش العظيم' },
+      { id: '8', text: 'اللهم بك أصبحنا وبك أمسينا وبك نحيا وبك نموت وإليك النشور' },
+      { id: '9', text: 'رضيت بالله رباً وبالإسلام ديناً وبمحمد صلى الله عليه وسلم نبياً' },
+      { id: '10', text: 'يا حي يا قيوم برحمتك أستغيث أصلح لي شأني كله ولا تكلني إلى نفسي طرفة عين' },
+      { id: '11', text: 'اللهم إني أسألك العفو والعافية في الدنيا والآخرة' },
+      { id: '12', text: 'سبحان الله والحمد لله ولا إله إلا الله والله أكبر' }
+    ],
+    carouselSpeed: 30,
+    uid: 'default'
   });
 
   const currentTheme = useMemo(() => THEMES.find(t => t.id === settings.themeId) || THEMES[0], [settings.themeId]);
@@ -298,55 +220,130 @@ export default function App() {
   const [targetCategoryId, setTargetCategoryId] = useState<string>('cat-default');
   const [activeModule, setActiveModule] = useState<'none' | 'notebook' | 'tasks'>('none');
 
-  const [notes, setNotes] = useState<Note[]>(() => {
-    const saved = localStorage.getItem('notes');
-    return saved ? JSON.parse(saved) : [];
-  });
-  const [tasks, setTasks] = useState<Task[]>(() => {
-    const saved = localStorage.getItem('tasks');
-    return saved ? JSON.parse(saved) : [];
-  });
+  const [notes, setNotes] = useState<Note[]>([]);
+  const [tasks, setTasks] = useState<Task[]>([]);
 
-  // Persistence
-  useEffect(() => {
-    localStorage.setItem('isLoggedIn', String(isLoggedIn));
-    localStorage.setItem('categories', JSON.stringify(categories));
-    localStorage.setItem('items', JSON.stringify(items));
-    localStorage.setItem('recentIds', JSON.stringify(recentIds));
-    localStorage.setItem('settings', JSON.stringify(settings));
-    localStorage.setItem('notes', JSON.stringify(notes));
-    localStorage.setItem('tasks', JSON.stringify(tasks));
-  }, [isLoggedIn, categories, items, recentIds, settings, notes, tasks]);
+  const [defaultProgramId, setDefaultProgramId] = useState<string | null>(localStorage.getItem('defaultProgramId'));
+  const [showDefaultBanner, setShowDefaultBanner] = useState(true);
+  const hasAutoOpened = useRef(false);
 
-  // Migration: Update carousel items if they are the old defaults (only 3 items)
+  if (asyncError) {
+    throw asyncError;
+  }
+
   useEffect(() => {
-    if (settings.carouselItems.length === 3) {
-      const newItems = [
-        { id: '1', text: 'اللهم صل وسلم على نبينا محمد' },
-        { id: '2', text: 'سبحان الله وبحمده سبحان الله العظيم' },
-        { id: '3', text: 'أستغفر الله العظيم وأتوب إليه' },
-        { id: '4', text: 'لا إله إلا الله وحده لا شريك له' },
-        { id: '5', text: 'الحمد لله حمداً كثيراً طيباً مباركاً فيه' },
-        { id: '6', text: 'لا حول ولا قوة إلا بالله العلي العظيم' },
-        { id: '7', text: 'حسبي الله لا إله إلا هو عليه توكلت وهو رب العرش العظيم' },
-        { id: '8', text: 'اللهم بك أصبحنا وبك أمسينا وبك نحيا وبك نموت وإليك النشور' },
-        { id: '9', text: 'رضيت بالله رباً وبالإسلام ديناً وبمحمد صلى الله عليه وسلم نبياً' },
-        { id: '10', text: 'يا حي يا قيوم برحمتك أستغيث أصلح لي شأني كله ولا تكلني إلى نفسي طرفة عين' },
-        { id: '11', text: 'اللهم إني أسألك العفو والعافية في الدنيا والآخرة' },
-        { id: '12', text: 'سبحان الله والحمد لله ولا إله إلا الله والله أكبر' }
-      ];
-      setSettings(prev => ({ ...prev, carouselItems: newItems }));
+    // Load data from localStorage or use defaults
+    const storedCategories = localStorage.getItem('categories');
+    const storedItems = localStorage.getItem('items');
+    const storedNotes = localStorage.getItem('notes');
+    const storedTasks = localStorage.getItem('tasks');
+    const storedSettings = localStorage.getItem('settings');
+
+    if (storedCategories) {
+      setCategories(JSON.parse(storedCategories));
+    } else {
+      setCategories(DEFAULT_CATEGORIES);
+      localStorage.setItem('categories', JSON.stringify(DEFAULT_CATEGORIES));
+    }
+
+    if (storedItems) {
+      setItems(JSON.parse(storedItems));
+    } else {
+      setItems(DEFAULT_ITEMS);
+      localStorage.setItem('items', JSON.stringify(DEFAULT_ITEMS));
+    }
+
+    if (storedNotes) {
+      setNotes(JSON.parse(storedNotes));
+    }
+
+    if (storedTasks) {
+      setTasks(JSON.parse(storedTasks));
+    }
+
+    if (storedSettings) {
+      setSettings(JSON.parse(storedSettings));
+    } else {
+      localStorage.setItem('settings', JSON.stringify(settings));
     }
   }, []);
 
-  // Migration: Update default category name
   useEffect(() => {
-    setCategories(prev => prev.map(cat => 
-      (cat.id === 'cat-default' && cat.name === 'الروابط الافتراضية') 
-        ? { ...cat, name: 'برامج نافعة لك' } 
-        : cat
-    ));
+    if (defaultProgramId && items.length > 0 && !hasAutoOpened.current) {
+      const defaultItem = items.find(i => i.id === defaultProgramId);
+      if (defaultItem) {
+        hasAutoOpened.current = true;
+        if (!defaultItem.openInNewTab) {
+          setViewingItem(defaultItem);
+        }
+      }
+    }
+  }, [defaultProgramId, items]);
+
+  useEffect(() => {
+    const handleDefaultProgramChanged = (e: Event) => {
+      const customEvent = e as CustomEvent<string>;
+      setDefaultProgramId(customEvent.detail);
+    };
+    window.addEventListener('defaultProgramChanged', handleDefaultProgramChanged);
+    return () => window.removeEventListener('defaultProgramChanged', handleDefaultProgramChanged);
   }, []);
+
+  const handleShare = async (title: string, text: string, url: string) => {
+    // التأكد من أن الرابط كامل (Absolute URL)
+    let shareUrl = url;
+    try {
+      if (url.startsWith('/')) {
+        shareUrl = window.location.origin + url;
+      } else if (!url.startsWith('http') && !url.startsWith('blob:') && !url.startsWith('data:')) {
+        // إذا كان الرابط لا يبدأ ببروتوكول معروف، قد يكون مساراً نسبياً
+        shareUrl = new URL(url, window.location.origin).href;
+      }
+    } catch (e) {
+      shareUrl = url;
+    }
+
+    const shareData = { title, text, url: shareUrl };
+
+    // التحقق من دعم المتصفح للمشاركة
+    if (navigator.share) {
+      try {
+        // بعض المتصفحات القديمة تدعم navigator.share ولكنها تفشل في التنفيذ
+        // نستخدم navigator.canShare إذا كان متاحاً للتحقق الإضافي
+        if (navigator.canShare && !navigator.canShare(shareData)) {
+          throw new Error('CanShare returned false');
+        }
+
+        await navigator.share(shareData);
+      } catch (error) {
+        if ((error as Error).name !== 'AbortError') {
+          console.error('Error sharing:', error);
+          // محاولة النسخ كبديل
+          try {
+            await navigator.clipboard.writeText(shareUrl);
+            alert('عذراً، حدث خطأ في ميزة المشاركة التلقائية على هذا الجهاز. تم نسخ الرابط إلى الحافظة بنجاح.\n\nنصيحة: يفضل استخدام متصفح كروم (Chrome) المحدث لضمان عمل كافة الميزات.');
+          } catch (clipError) {
+            alert('عذراً، لم نتمكن من فتح ميزة المشاركة. يرجى محاولة نسخ الرابط يدوياً من شريط العنوان.');
+          }
+        }
+      }
+    } else {
+      // إذا كان المتصفح لا يدعم المشاركة نهائياً
+      try {
+        await navigator.clipboard.writeText(shareUrl);
+        alert('ميزة المشاركة المباشرة غير مدعومة في هذا المتصفح. تم نسخ الرابط إلى الحافظة بنجاح.');
+      } catch (clipError) {
+        alert('ميزة المشاركة غير مدعومة في هذا المتصفح. يرجى نسخ الرابط يدوياً.');
+      }
+    }
+  };
+
+
+  const updateSettings = (newSettings: Partial<AppSettings>) => {
+    const updated = { ...settings, ...newSettings };
+    setSettings(updated);
+    localStorage.setItem('settings', JSON.stringify(updated));
+  };
 
   const allCarouselItems = useMemo(() => {
     const taskItems = tasks
@@ -355,12 +352,18 @@ export default function App() {
     return [...settings.carouselItems, ...taskItems];
   }, [settings.carouselItems, tasks]);
 
-  const handleLogin = () => setIsLoggedIn(true);
-
-  const handleItemClick = (item: ContentItem) => {
+  const handleItemClick = async (item: ContentItem) => {
     setRecentIds(prev => [item.id, ...prev.filter(id => id !== item.id)].slice(0, 10));
-    if (item.type === 'link' || item.url.startsWith('http') || item.url.startsWith('blob:') || item.url.startsWith('data:')) {
+    
+    if (item.openInNewTab) {
       window.open(item.url, '_blank');
+      return;
+    }
+
+    if (item.url.startsWith('storage://')) {
+      alert('عذراً، ميزة تحميل الملفات من السحابة غير متوفرة في الوضع المحلي.');
+    } else if (item.type === 'link' || item.url.startsWith('http') || item.url.startsWith('blob:') || item.url.startsWith('data:')) {
+      setViewingItem(item);
     } else {
       // Try to handle local file paths or just open in new tab
       window.open(item.url, '_blank');
@@ -368,7 +371,12 @@ export default function App() {
   };
 
   const toggleFavorite = (id: string) => {
-    setItems(prev => prev.map(item => item.id === id ? { ...item, isFavorite: !item.isFavorite } : item));
+    const item = items.find(i => i.id === id);
+    if (item) {
+      const updatedItems = items.map(i => i.id === id ? { ...i, isFavorite: !i.isFavorite } : i);
+      setItems(updatedItems);
+      localStorage.setItem('items', JSON.stringify(updatedItems));
+    }
   };
 
   const filteredItems = useMemo(() => {
@@ -382,10 +390,18 @@ export default function App() {
   }, [activeTab, items, recentIds, currentCategory]);
 
   const activeCategories = useMemo(() => {
-    return categories.filter(c => c.parentId === currentCategory);
+    const filtered = categories.filter(c => c.parentId === currentCategory);
+    // Sort based on DEFAULT_CATEGORIES order if they are default categories
+    return [...filtered].sort((a, b) => {
+      const indexA = DEFAULT_CATEGORIES.findIndex(dc => dc.id === a.id);
+      const indexB = DEFAULT_CATEGORIES.findIndex(dc => dc.id === b.id);
+      
+      if (indexA !== -1 && indexB !== -1) return indexA - indexB;
+      if (indexA !== -1) return -1;
+      if (indexB !== -1) return 1;
+      return 0;
+    });
   }, [categories, currentCategory]);
-
-  if (!isLoggedIn) return <Login onLogin={handleLogin} theme={currentTheme} />;
 
   if (viewingItem) {
     return (
@@ -402,6 +418,13 @@ export default function App() {
           </div>
           
           <div className="flex items-center gap-2">
+            <button 
+              onClick={() => handleShare(viewingItem.title, 'مشاركة من تطبيق رفيق المسلم', viewingItem.url)}
+              className="p-2 bg-slate-100 rounded-full hover:bg-slate-200 transition-colors"
+              title="مشاركة"
+            >
+              <Share2 className="w-5 h-5 text-slate-600" />
+            </button>
             <button 
               onClick={() => {
                 navigator.clipboard.writeText(viewingItem.url);
@@ -474,6 +497,39 @@ export default function App() {
 
   return (
     <div className="min-h-screen flex flex-col pb-32 transition-all duration-500" style={{ background: currentTheme.background }}>
+      {/* Auto Redirect Banner */}
+      <AnimatePresence>
+        {showDefaultBanner && defaultProgramId && items.find(i => i.id === defaultProgramId)?.openInNewTab && (
+          <motion.div 
+            initial={{ opacity: 0, y: -50 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -50 }}
+            className="fixed top-0 left-0 w-full z-50 bg-emerald-600 text-white p-4 shadow-xl flex items-center justify-between"
+          >
+            <div className="flex items-center gap-3">
+              <span className="font-bold">البرنامج الافتراضي: {items.find(i => i.id === defaultProgramId)?.title}</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <button 
+                onClick={() => {
+                  handleItemClick(items.find(i => i.id === defaultProgramId)!);
+                  setShowDefaultBanner(false);
+                }}
+                className="px-4 py-1.5 bg-white text-emerald-600 rounded-lg font-bold transition-colors"
+              >
+                فتح الآن
+              </button>
+              <button 
+                onClick={() => setShowDefaultBanner(false)}
+                className="px-4 py-1.5 bg-white/20 hover:bg-white/30 rounded-lg font-bold transition-colors"
+              >
+                إخفاء
+              </button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Header */}
       <header className="sticky top-0 z-30 bg-white/60 backdrop-blur-xl border-b border-white/20 px-6 py-4 flex items-center justify-between shadow-sm">
         <div className="flex items-center gap-3">
@@ -483,6 +539,13 @@ export default function App() {
           <h1 className="text-3xl font-serif font-bold" style={{ color: currentTheme.secondary }}>رفيق المسلم</h1>
         </div>
         <div className="flex items-center gap-2">
+          <button 
+            onClick={() => handleShare('رفيق المسلم', 'تطبيق رفيق المسلم - دليلك الشامل', window.location.href)}
+            className="p-2 hover:bg-white/30 rounded-full transition-colors backdrop-blur-md border border-white/10"
+            title="مشاركة التطبيق"
+          >
+            <Share2 className="w-5 h-5 text-slate-600" />
+          </button>
           <button 
             onClick={() => setActiveTab('settings')}
             className="p-2 hover:bg-white/30 rounded-full transition-colors backdrop-blur-md border border-white/10"
@@ -742,7 +805,7 @@ export default function App() {
                         {THEMES.map(theme => (
                           <button
                             key={theme.id}
-                            onClick={() => setSettings(s => ({ ...s, themeId: theme.id }))}
+                            onClick={() => updateSettings({ themeId: theme.id })}
                             className={`p-3 rounded-2xl border-2 transition-all text-center ${settings.themeId === theme.id ? 'border-emerald-500 shadow-lg scale-105' : 'border-slate-100'}`}
                             style={{ background: theme.background }}
                           >
@@ -754,6 +817,38 @@ export default function App() {
                     </motion.div>
                   )}
                 </AnimatePresence>
+              </section>
+
+              {/* Default Program Management */}
+              <section className="bg-white/40 backdrop-blur-md p-4 rounded-3xl border border-white/20 shadow-sm">
+                <h3 className="text-lg font-display font-bold flex items-center gap-2 mb-4">
+                  <Home className="w-5 h-5" style={{ color: currentTheme.primary }} />
+                  البرنامج الافتراضي
+                </h3>
+                {defaultProgramId ? (
+                  <div className="flex flex-col gap-3">
+                    <p className="text-sm text-slate-600">
+                      يوجد برنامج افتراضي معين حالياً. سيتم فتحه تلقائياً عند الدخول.
+                    </p>
+                    <div className="p-3 bg-slate-50 border rounded-xl text-xs text-slate-500 truncate" dir="ltr">
+                      {items.find(i => i.id === defaultProgramId)?.title || 'برنامج غير معروف'}
+                    </div>
+                    <button 
+                      onClick={() => {
+                        localStorage.removeItem('defaultProgramId');
+                        setDefaultProgramId(null);
+                        alert('تم إزالة البرنامج الافتراضي بنجاح.');
+                      }}
+                      className="w-full py-3 bg-red-50 text-red-600 rounded-xl text-sm font-bold shadow-sm border border-red-100 hover:bg-red-100 transition-colors"
+                    >
+                      إلغاء تعيين البرنامج الافتراضي
+                    </button>
+                  </div>
+                ) : (
+                  <p className="text-sm text-slate-500">
+                    لا يوجد برنامج افتراضي. يمكنك تعيين أي برنامج كافتراضي من خلال النقر على أيقونة المنزل (الرئيسية) بجانبه.
+                  </p>
+                )}
               </section>
 
               {/* Carousel Management */}
@@ -771,7 +866,7 @@ export default function App() {
                       max="100" 
                       step="5"
                       value={settings.carouselSpeed}
-                      onChange={(e) => setSettings(s => ({ ...s, carouselSpeed: parseInt(e.target.value) }))}
+                      onChange={(e) => updateSettings({ carouselSpeed: parseInt(e.target.value) })}
                       className="w-20 accent-emerald-600"
                     />
                   </div>
@@ -783,18 +878,14 @@ export default function App() {
                         className="flex-1 p-3 bg-slate-50 border rounded-xl"
                         value={item.text}
                         onChange={(e) => {
-                          setSettings(s => ({
-                            ...s,
-                            carouselItems: s.carouselItems.map(i => i.id === item.id ? { ...i, text: e.target.value } : i)
-                          }));
+                          const newItems = settings.carouselItems.map(i => i.id === item.id ? { ...i, text: e.target.value } : i);
+                          updateSettings({ carouselItems: newItems });
                         }}
                       />
                       <button 
                         onClick={() => {
-                          setSettings(s => ({
-                            ...s,
-                            carouselItems: s.carouselItems.filter(i => i.id !== item.id)
-                          }));
+                          const newItems = settings.carouselItems.filter(i => i.id !== item.id);
+                          updateSettings({ carouselItems: newItems });
                         }}
                         className="p-3 bg-red-50 text-red-600 rounded-xl"
                       >
@@ -804,10 +895,8 @@ export default function App() {
                   ))}
                   <button 
                     onClick={() => {
-                      setSettings(s => ({
-                        ...s,
-                        carouselItems: [...s.carouselItems, { id: Date.now().toString(), text: 'نص جديد' }]
-                      }));
+                      const newItems = [...settings.carouselItems, { id: Date.now().toString(), text: 'نص جديد' }];
+                      updateSettings({ carouselItems: newItems });
                     }}
                     className="w-full p-3 border-2 border-dashed border-slate-200 rounded-xl text-slate-400 font-bold"
                   >
@@ -833,16 +922,20 @@ export default function App() {
                       className="flex-1 p-2 bg-white border rounded-lg text-sm"
                     />
                     <button 
-                      onClick={() => {
+                      onClick={async () => {
                         const name = (document.getElementById('new-cat-name') as HTMLInputElement).value;
                         if (!name) return;
+                        const catId = Date.now().toString();
                         const newCat: Category = {
-                          id: Date.now().toString(),
+                          id: catId,
                           name,
                           parentId: currentCategory,
-                          color: '#' + Math.floor(Math.random()*16777215).toString(16)
+                          color: VIBRANT_COLORS[Math.floor(Math.random() * VIBRANT_COLORS.length)],
+                          uid: 'default'
                         };
-                        setCategories([...categories, newCat]);
+                        const updatedCats = [...categories, newCat];
+                        setCategories(updatedCats);
+                        localStorage.setItem('categories', JSON.stringify(updatedCats));
                         (document.getElementById('new-cat-name') as HTMLInputElement).value = '';
                       }}
                       className="px-4 py-2 bg-emerald-600 text-white rounded-lg text-sm font-bold"
@@ -893,10 +986,8 @@ export default function App() {
                             onChange={(e) => {
                               const file = e.target.files?.[0];
                               if (file) {
-                                // In a real app we'd use File System Access API or store a blob
-                                // For this request, we'll store the blob URL which works for the session
-                                const blobUrl = URL.createObjectURL(file);
-                                (document.getElementById('new-item-url') as HTMLInputElement).value = blobUrl;
+                                setSelectedPdfFile(file);
+                                (document.getElementById('new-item-url') as HTMLInputElement).value = file.name;
                                 if (!(document.getElementById('new-item-title') as HTMLInputElement).value) {
                                   (document.getElementById('new-item-title') as HTMLInputElement).value = file.name;
                                 }
@@ -910,24 +1001,35 @@ export default function App() {
                     <button 
                       onClick={async () => {
                         const title = (document.getElementById('new-item-title') as HTMLInputElement).value;
-                        const url = (document.getElementById('new-item-url') as HTMLInputElement).value;
+                        let url = (document.getElementById('new-item-url') as HTMLInputElement).value;
                         
-                        if (!title || !url) {
-                          alert('يرجى إدخال العنوان والرابط');
+                        if (!title || (!url && newItemType === 'link') || (!selectedPdfFile && newItemType === 'pdf')) {
+                          alert('يرجى إدخال العنوان والرابط أو اختيار ملف');
+                          return;
+                        }
+
+                        const itemId = Date.now().toString();
+
+                        if (newItemType === 'pdf' && selectedPdfFile) {
+                          alert('عذراً، ميزة رفع الملفات غير متوفرة في الوضع المحلي. يرجى استخدام رابط مباشر للملف.');
                           return;
                         }
 
                         const newItem: ContentItem = {
-                          id: Date.now().toString(),
+                          id: itemId,
                           title,
                           url,
                           type: newItemType,
                           color: VIBRANT_COLORS[Math.floor(Math.random() * VIBRANT_COLORS.length)],
                           categoryId: targetCategoryId,
                           createdAt: Date.now(),
-                          isFavorite: false
+                          isFavorite: false,
+                          uid: 'default'
                         };
-                        setItems([...items, newItem]);
+                        
+                        const updatedItems = [...items, newItem];
+                        setItems(updatedItems);
+                        localStorage.setItem('items', JSON.stringify(updatedItems));
                         (document.getElementById('new-item-title') as HTMLInputElement).value = '';
                         (document.getElementById('new-item-url') as HTMLInputElement).value = '';
                         setSelectedPdfFile(null);
@@ -950,7 +1052,16 @@ export default function App() {
                           <span className="font-bold text-slate-700">{cat.name} (قسم)</span>
                         </div>
                         <button 
-                          onClick={() => setCategories(categories.filter(c => c.id !== cat.id))}
+                          onClick={() => {
+                            const updatedCats = categories.filter(c => c.id !== cat.id);
+                            const itemsToDelete = items.filter(i => i.categoryId === cat.id);
+                            const updatedItems = items.filter(i => i.categoryId !== cat.id);
+                            
+                            setCategories(updatedCats);
+                            setItems(updatedItems);
+                            localStorage.setItem('categories', JSON.stringify(updatedCats));
+                            localStorage.setItem('items', JSON.stringify(updatedItems));
+                          }}
                           className="p-2 text-red-500 hover:bg-red-50 rounded-lg"
                         >
                           <Trash2 className="w-4 h-4" />
@@ -964,7 +1075,11 @@ export default function App() {
                           <span className="text-sm text-slate-700">{item.title}</span>
                         </div>
                         <button 
-                          onClick={() => setItems(items.filter(i => i.id !== item.id))}
+                          onClick={() => {
+                            const updatedItems = items.filter(i => i.id !== item.id);
+                            setItems(updatedItems);
+                            localStorage.setItem('items', JSON.stringify(updatedItems));
+                          }}
                           className="p-2 text-red-500 hover:bg-red-50 rounded-lg"
                         >
                           <Trash2 className="w-4 h-4" />
@@ -974,17 +1089,6 @@ export default function App() {
                   </div>
                 </div>
               </section>
-
-              {/* Logout */}
-              <button 
-                onClick={() => {
-                  setIsLoggedIn(false);
-                  localStorage.removeItem('isLoggedIn');
-                }}
-                className="w-full py-4 bg-slate-100 text-slate-600 rounded-xl font-bold"
-              >
-                تسجيل الخروج
-              </button>
             </div>
           </motion.div>
         )}
@@ -1016,15 +1120,19 @@ export default function App() {
                   className="w-full h-40 bg-transparent border-none focus:ring-0 text-slate-700 font-medium resize-none"
                 />
                 <button 
-                  onClick={() => {
+                  onClick={async () => {
                     const content = (document.getElementById('note-content') as HTMLTextAreaElement).value;
                     if (!content) return;
+                    const noteId = Date.now().toString();
                     const newNote: Note = {
-                      id: Date.now().toString(),
+                      id: noteId,
                       content,
-                      createdAt: Date.now()
+                      createdAt: Date.now(),
+                      uid: 'default'
                     };
-                    setNotes([newNote, ...notes]);
+                    const updatedNotes = [...notes, newNote];
+                    setNotes(updatedNotes);
+                    localStorage.setItem('notes', JSON.stringify(updatedNotes));
                     (document.getElementById('note-content') as HTMLTextAreaElement).value = '';
                   }}
                   className="w-full mt-4 py-3 bg-amber-600 text-white rounded-xl font-bold shadow-lg flex items-center justify-center gap-2"
@@ -1040,7 +1148,14 @@ export default function App() {
                   <div key={note.id} className="p-4 bg-white border border-slate-100 rounded-2xl shadow-sm space-y-3">
                     <div className="flex justify-between items-center text-[10px] text-slate-400 font-bold">
                       <span>{new Date(note.createdAt).toLocaleString('ar-EG')}</span>
-                      <button onClick={() => setNotes(notes.filter(n => n.id !== note.id))} className="text-red-400">
+                      <button 
+                        onClick={() => {
+                          const updatedNotes = notes.filter(n => n.id !== note.id);
+                          setNotes(updatedNotes);
+                          localStorage.setItem('notes', JSON.stringify(updatedNotes));
+                        }} 
+                        className="text-red-400"
+                      >
                         <Trash2 className="w-4 h-4" />
                       </button>
                     </div>
@@ -1098,19 +1213,23 @@ export default function App() {
                   />
                 </div>
                 <button 
-                  onClick={() => {
+                  onClick={async () => {
                     const title = (document.getElementById('task-title') as HTMLInputElement).value;
                     const date = (document.getElementById('task-date') as HTMLInputElement).value;
                     if (!title || !date) return;
+                    const taskId = Date.now().toString();
                     const newTask: Task = {
-                      id: Date.now().toString(),
+                      id: taskId,
                       title,
                       date,
                       status: 'none',
                       showInCarousel: false,
-                      createdAt: Date.now()
+                      createdAt: Date.now(),
+                      uid: 'default'
                     };
-                    setTasks([newTask, ...tasks]);
+                    const updatedTasks = [...tasks, newTask];
+                    setTasks(updatedTasks);
+                    localStorage.setItem('tasks', JSON.stringify(updatedTasks));
                     (document.getElementById('task-title') as HTMLInputElement).value = '';
                     (document.getElementById('task-date') as HTMLInputElement).value = '';
                   }}
@@ -1135,14 +1254,23 @@ export default function App() {
                       <div className="flex items-center gap-2">
                         <button 
                           onClick={() => {
-                            setTasks(tasks.map(t => t.id === task.id ? { ...t, showInCarousel: !t.showInCarousel } : t));
+                            const updatedTasks = tasks.map(t => t.id === task.id ? { ...t, showInCarousel: !t.showInCarousel } : t);
+                            setTasks(updatedTasks);
+                            localStorage.setItem('tasks', JSON.stringify(updatedTasks));
                           }}
                           className={`p-2 rounded-lg transition-colors ${task.showInCarousel ? 'bg-amber-100 text-amber-600' : 'bg-slate-50 text-slate-400'}`}
                           title="إظهار في الشريط المتحرك"
                         >
                           <Share2 className="w-4 h-4" />
                         </button>
-                        <button onClick={() => setTasks(tasks.filter(t => t.id !== task.id))} className="p-2 text-red-400">
+                        <button 
+                          onClick={() => {
+                            const updatedTasks = tasks.filter(t => t.id !== task.id);
+                            setTasks(updatedTasks);
+                            localStorage.setItem('tasks', JSON.stringify(updatedTasks));
+                          }} 
+                          className="p-2 text-red-400"
+                        >
                           <Trash2 className="w-4 h-4" />
                         </button>
                       </div>
@@ -1157,7 +1285,9 @@ export default function App() {
                             'completed': 'not-completed',
                             'not-completed': 'none'
                           };
-                          setTasks(tasks.map(t => t.id === task.id ? { ...t, status: nextStatus[t.status] } : t));
+                          const updatedTasks = tasks.map(t => t.id === task.id ? { ...t, status: nextStatus[task.status] } : t);
+                          setTasks(updatedTasks);
+                          localStorage.setItem('tasks', JSON.stringify(updatedTasks));
                         }}
                         className={`px-4 py-2 rounded-xl text-xs font-bold transition-all border-2 ${
                           task.status === 'in-progress' ? 'bg-blue-50 border-blue-200 text-blue-600' :

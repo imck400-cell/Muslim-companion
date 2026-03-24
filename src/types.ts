@@ -10,6 +10,8 @@ export interface ContentItem {
   categoryId: string;
   createdAt: number;
   isFavorite: boolean;
+  uid?: string;
+  openInNewTab?: boolean;
 }
 
 export interface Category {
@@ -17,6 +19,7 @@ export interface Category {
   name: string;
   parentId: string | null; // null for main categories
   color: string;
+  uid?: string;
 }
 
 export interface CarouselItem {
@@ -39,6 +42,7 @@ export interface Note {
   id: string;
   content: string;
   createdAt: number;
+  uid?: string;
 }
 
 export type TaskStatus = 'none' | 'in-progress' | 'completed' | 'not-completed';
@@ -50,6 +54,7 @@ export interface Task {
   status: TaskStatus;
   showInCarousel: boolean;
   createdAt: number;
+  uid?: string;
 }
 
 export interface AppSettings {
@@ -57,4 +62,5 @@ export interface AppSettings {
   themeId: string;
   carouselItems: CarouselItem[];
   carouselSpeed: number; // Duration in seconds for one full cycle
+  uid?: string;
 }
