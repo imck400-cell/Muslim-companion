@@ -34,9 +34,9 @@ import {
 } from 'lucide-react';
 import { LOGIN_PHRASE, WELCOME_MESSAGE, FOOTER_INFO, CONTACT_PHONE, WHATSAPP_LINK, DEFAULT_CATEGORIES, DEFAULT_ITEMS, THEMES, VIBRANT_COLORS } from './constants';
 import { Category, ContentItem, AppSettings, CarouselItem, Theme, Note, Task, TaskStatus } from './types';
-import { db, auth, storage, handleFirestoreError, OperationType } from './firebase';
+import { db, auth, storage, createFirestoreError, OperationType } from './firebase';
 
-import { collection, doc, setDoc, deleteDoc, onSnapshot, query, getDocs, writeBatch } from 'firebase/firestore';
+import { collection, doc, setDoc, deleteDoc, onSnapshot, query, getDocs, writeBatch, getDocFromServer } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
 
 // --- Components ---
@@ -188,6 +188,7 @@ function ContentCard({ item, onClick, onToggleFavorite }: { item: ContentItem, o
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<'home' | 'recent' | 'favorites' | 'settings'>('home');
+  const [asyncError, setAsyncError] = useState<Error | null>(null);
   const [showQuickAdd, setShowQuickAdd] = useState(false);
   const [selectedPdfFile, setSelectedPdfFile] = useState<File | null>(null);
   const [newItemType, setNewItemType] = useState<'link' | 'pdf'>('link');
@@ -230,6 +231,23 @@ export default function App() {
   const [showDefaultBanner, setShowDefaultBanner] = useState(true);
   const hasAutoOpened = useRef(false);
 
+  if (asyncError) {
+    throw asyncError;
+  }
+
+  useEffect(() => {
+    async function testConnection() {
+      try {
+        await getDocFromServer(doc(db, 'settings', 'global'));
+      } catch (error) {
+        if (error instanceof Error && (error.message.includes('Quota exceeded') || error.message.includes('quota'))) {
+          setAsyncError(createFirestoreError(error, OperationType.GET, 'settings/global'));
+        }
+      }
+    }
+    testConnection();
+  }, []);
+
   useEffect(() => {
     if (defaultProgramId && items.length > 0 && !hasAutoOpened.current) {
       const defaultItem = items.find(i => i.id === defaultProgramId);
@@ -251,6 +269,55 @@ export default function App() {
     return () => window.removeEventListener('defaultProgramChanged', handleDefaultProgramChanged);
   }, []);
 
+  const handleShare = async (title: string, text: string, url: string) => {
+    // التأكد من أن الرابط كامل (Absolute URL)
+    let shareUrl = url;
+    try {
+      if (url.startsWith('/')) {
+        shareUrl = window.location.origin + url;
+      } else if (!url.startsWith('http') && !url.startsWith('blob:') && !url.startsWith('data:')) {
+        // إذا كان الرابط لا يبدأ ببروتوكول معروف، قد يكون مساراً نسبياً
+        shareUrl = new URL(url, window.location.origin).href;
+      }
+    } catch (e) {
+      shareUrl = url;
+    }
+
+    const shareData = { title, text, url: shareUrl };
+
+    // التحقق من دعم المتصفح للمشاركة
+    if (navigator.share) {
+      try {
+        // بعض المتصفحات القديمة تدعم navigator.share ولكنها تفشل في التنفيذ
+        // نستخدم navigator.canShare إذا كان متاحاً للتحقق الإضافي
+        if (navigator.canShare && !navigator.canShare(shareData)) {
+          throw new Error('CanShare returned false');
+        }
+
+        await navigator.share(shareData);
+      } catch (error) {
+        if ((error as Error).name !== 'AbortError') {
+          console.error('Error sharing:', error);
+          // محاولة النسخ كبديل
+          try {
+            await navigator.clipboard.writeText(shareUrl);
+            alert('عذراً، حدث خطأ في ميزة المشاركة التلقائية على هذا الجهاز. تم نسخ الرابط إلى الحافظة بنجاح.\n\nنصيحة: يفضل استخدام متصفح كروم (Chrome) المحدث لضمان عمل كافة الميزات.');
+          } catch (clipError) {
+            alert('عذراً، لم نتمكن من فتح ميزة المشاركة. يرجى محاولة نسخ الرابط يدوياً من شريط العنوان.');
+          }
+        }
+      }
+    } else {
+      // إذا كان المتصفح لا يدعم المشاركة نهائياً
+      try {
+        await navigator.clipboard.writeText(shareUrl);
+        alert('ميزة المشاركة المباشرة غير مدعومة في هذا المتصفح. تم نسخ الرابط إلى الحافظة بنجاح.');
+      } catch (clipError) {
+        alert('ميزة المشاركة غير مدعومة في هذا المتصفح. يرجى نسخ الرابط يدوياً.');
+      }
+    }
+  };
+
   useEffect(() => {
     const unsubCategories = onSnapshot(collection(db, 'categories'), (snapshot) => {
       const cats: Category[] = [];
@@ -261,7 +328,7 @@ export default function App() {
         DEFAULT_CATEGORIES.forEach(cat => {
           batch.set(doc(db, 'categories', cat.id), { ...cat, uid: 'default' });
         });
-        batch.commit().catch(error => handleFirestoreError(error, OperationType.WRITE, 'categories'));
+        batch.commit().catch(error => setAsyncError(createFirestoreError(error, OperationType.WRITE, 'categories')));
       } else {
         setCategories(cats);
         // Check for missing default categories and add them
@@ -297,10 +364,10 @@ export default function App() {
         });
 
         if (needsUpdate) {
-          batch.commit().catch(error => handleFirestoreError(error, OperationType.WRITE, 'categories-update'));
+          batch.commit().catch(error => setAsyncError(createFirestoreError(error, OperationType.WRITE, 'categories-update')));
         }
       }
-    }, (error) => handleFirestoreError(error, OperationType.GET, 'categories'));
+    }, (error) => setAsyncError(createFirestoreError(error, OperationType.GET, 'categories')));
 
     const unsubItems = onSnapshot(collection(db, 'items'), (snapshot) => {
       const itms: ContentItem[] = [];
@@ -311,7 +378,7 @@ export default function App() {
         DEFAULT_ITEMS.forEach(item => {
           batch.set(doc(db, 'items', item.id), { ...item, uid: 'default' });
         });
-        batch.commit().catch(error => handleFirestoreError(error, OperationType.WRITE, 'items'));
+        batch.commit().catch(error => setAsyncError(createFirestoreError(error, OperationType.WRITE, 'items')));
       } else {
         setItems(itms);
         // Check for missing default items and add them
@@ -335,30 +402,30 @@ export default function App() {
         });
 
         if (needsUpdate) {
-          batch.commit().catch(error => handleFirestoreError(error, OperationType.WRITE, 'items-update'));
+          batch.commit().catch(error => setAsyncError(createFirestoreError(error, OperationType.WRITE, 'items-update')));
         }
       }
-    }, (error) => handleFirestoreError(error, OperationType.GET, 'items'));
+    }, (error) => setAsyncError(createFirestoreError(error, OperationType.GET, 'items')));
 
     const unsubNotes = onSnapshot(collection(db, 'notes'), (snapshot) => {
       const nts: Note[] = [];
       snapshot.forEach(doc => nts.push(doc.data() as Note));
       setNotes(nts);
-    }, (error) => handleFirestoreError(error, OperationType.GET, 'notes'));
+    }, (error) => setAsyncError(createFirestoreError(error, OperationType.GET, 'notes')));
 
     const unsubTasks = onSnapshot(collection(db, 'tasks'), (snapshot) => {
       const tsks: Task[] = [];
       snapshot.forEach(doc => tsks.push(doc.data() as Task));
       setTasks(tsks);
-    }, (error) => handleFirestoreError(error, OperationType.GET, 'tasks'));
+    }, (error) => setAsyncError(createFirestoreError(error, OperationType.GET, 'tasks')));
 
     const unsubSettings = onSnapshot(doc(db, 'settings', 'global'), (docSnap) => {
       if (docSnap.exists()) {
         setSettings(docSnap.data() as AppSettings);
       } else {
-        setDoc(doc(db, 'settings', 'global'), settings).catch(error => handleFirestoreError(error, OperationType.WRITE, 'settings/global'));
+        setDoc(doc(db, 'settings', 'global'), settings).catch(error => setAsyncError(createFirestoreError(error, OperationType.WRITE, 'settings/global')));
       }
-    }, (error) => handleFirestoreError(error, OperationType.GET, 'settings/global'));
+    }, (error) => setAsyncError(createFirestoreError(error, OperationType.GET, 'settings/global')));
 
     return () => {
       unsubCategories();
@@ -375,7 +442,7 @@ export default function App() {
     try {
       await setDoc(doc(db, 'settings', 'global'), updated);
     } catch (error) {
-      handleFirestoreError(error, OperationType.WRITE, 'settings/global');
+      setAsyncError(createFirestoreError(error, OperationType.WRITE, 'settings/global'));
     }
   };
 
@@ -420,7 +487,7 @@ export default function App() {
       try {
         await setDoc(doc(db, 'items', id), updatedItem);
       } catch (error) {
-        handleFirestoreError(error, OperationType.WRITE, `items/${id}`);
+        setAsyncError(createFirestoreError(error, OperationType.WRITE, `items/${id}`));
       }
     }
   };
@@ -464,6 +531,13 @@ export default function App() {
           </div>
           
           <div className="flex items-center gap-2">
+            <button 
+              onClick={() => handleShare(viewingItem.title, 'مشاركة من تطبيق رفيق المسلم', viewingItem.url)}
+              className="p-2 bg-slate-100 rounded-full hover:bg-slate-200 transition-colors"
+              title="مشاركة"
+            >
+              <Share2 className="w-5 h-5 text-slate-600" />
+            </button>
             <button 
               onClick={() => {
                 navigator.clipboard.writeText(viewingItem.url);
@@ -578,6 +652,13 @@ export default function App() {
           <h1 className="text-3xl font-serif font-bold" style={{ color: currentTheme.secondary }}>رفيق المسلم</h1>
         </div>
         <div className="flex items-center gap-2">
+          <button 
+            onClick={() => handleShare('رفيق المسلم', 'تطبيق رفيق المسلم - دليلك الشامل', window.location.href)}
+            className="p-2 hover:bg-white/30 rounded-full transition-colors backdrop-blur-md border border-white/10"
+            title="مشاركة التطبيق"
+          >
+            <Share2 className="w-5 h-5 text-slate-600" />
+          </button>
           <button 
             onClick={() => setActiveTab('settings')}
             className="p-2 hover:bg-white/30 rounded-full transition-colors backdrop-blur-md border border-white/10"
@@ -837,7 +918,7 @@ export default function App() {
                         {THEMES.map(theme => (
                           <button
                             key={theme.id}
-                            onClick={() => setSettings(s => ({ ...s, themeId: theme.id }))}
+                            onClick={() => updateSettings({ themeId: theme.id })}
                             className={`p-3 rounded-2xl border-2 transition-all text-center ${settings.themeId === theme.id ? 'border-emerald-500 shadow-lg scale-105' : 'border-slate-100'}`}
                             style={{ background: theme.background }}
                           >
@@ -898,7 +979,7 @@ export default function App() {
                       max="100" 
                       step="5"
                       value={settings.carouselSpeed}
-                      onChange={(e) => setSettings(s => ({ ...s, carouselSpeed: parseInt(e.target.value) }))}
+                      onChange={(e) => updateSettings({ carouselSpeed: parseInt(e.target.value) })}
                       className="w-20 accent-emerald-600"
                     />
                   </div>
@@ -910,18 +991,14 @@ export default function App() {
                         className="flex-1 p-3 bg-slate-50 border rounded-xl"
                         value={item.text}
                         onChange={(e) => {
-                          setSettings(s => ({
-                            ...s,
-                            carouselItems: s.carouselItems.map(i => i.id === item.id ? { ...i, text: e.target.value } : i)
-                          }));
+                          const newItems = settings.carouselItems.map(i => i.id === item.id ? { ...i, text: e.target.value } : i);
+                          updateSettings({ carouselItems: newItems });
                         }}
                       />
                       <button 
                         onClick={() => {
-                          setSettings(s => ({
-                            ...s,
-                            carouselItems: s.carouselItems.filter(i => i.id !== item.id)
-                          }));
+                          const newItems = settings.carouselItems.filter(i => i.id !== item.id);
+                          updateSettings({ carouselItems: newItems });
                         }}
                         className="p-3 bg-red-50 text-red-600 rounded-xl"
                       >
@@ -931,10 +1008,8 @@ export default function App() {
                   ))}
                   <button 
                     onClick={() => {
-                      setSettings(s => ({
-                        ...s,
-                        carouselItems: [...s.carouselItems, { id: Date.now().toString(), text: 'نص جديد' }]
-                      }));
+                      const newItems = [...settings.carouselItems, { id: Date.now().toString(), text: 'نص جديد' }];
+                      updateSettings({ carouselItems: newItems });
                     }}
                     className="w-full p-3 border-2 border-dashed border-slate-200 rounded-xl text-slate-400 font-bold"
                   >
@@ -975,7 +1050,7 @@ export default function App() {
                           await setDoc(doc(db, 'categories', catId), newCat);
                           (document.getElementById('new-cat-name') as HTMLInputElement).value = '';
                         } catch (error) {
-                          handleFirestoreError(error, OperationType.WRITE, `categories/${catId}`);
+                          setAsyncError(createFirestoreError(error, OperationType.WRITE, `categories/${catId}`));
                         }
                       }}
                       className="px-4 py-2 bg-emerald-600 text-white rounded-lg text-sm font-bold"
@@ -1080,7 +1155,7 @@ export default function App() {
                           (document.getElementById('new-item-url') as HTMLInputElement).value = '';
                           setSelectedPdfFile(null);
                         } catch (error) {
-                          handleFirestoreError(error, OperationType.WRITE, `items/${itemId}`);
+                          setAsyncError(createFirestoreError(error, OperationType.WRITE, `items/${itemId}`));
                         }
                       }}
                       className="w-full py-3 bg-emerald-600 text-white rounded-xl text-sm font-bold shadow-lg"
@@ -1114,7 +1189,7 @@ export default function App() {
                                 }
                               }
                             } catch (error) {
-                              handleFirestoreError(error, OperationType.DELETE, `categories/${cat.id}`);
+                              setAsyncError(createFirestoreError(error, OperationType.DELETE, `categories/${cat.id}`));
                             }
                           }}
                           className="p-2 text-red-500 hover:bg-red-50 rounded-lg"
@@ -1138,7 +1213,7 @@ export default function App() {
                                 deleteObject(fileRef).catch(console.error);
                               }
                             } catch (error) {
-                              handleFirestoreError(error, OperationType.DELETE, `items/${item.id}`);
+                              setAsyncError(createFirestoreError(error, OperationType.DELETE, `items/${item.id}`));
                             }
                           }}
                           className="p-2 text-red-500 hover:bg-red-50 rounded-lg"
@@ -1195,7 +1270,7 @@ export default function App() {
                       await setDoc(doc(db, 'notes', noteId), newNote);
                       (document.getElementById('note-content') as HTMLTextAreaElement).value = '';
                     } catch (error) {
-                      handleFirestoreError(error, OperationType.WRITE, `notes/${noteId}`);
+                      setAsyncError(createFirestoreError(error, OperationType.WRITE, `notes/${noteId}`));
                     }
                   }}
                   className="w-full mt-4 py-3 bg-amber-600 text-white rounded-xl font-bold shadow-lg flex items-center justify-center gap-2"
@@ -1216,7 +1291,7 @@ export default function App() {
                           try {
                             await deleteDoc(doc(db, 'notes', note.id));
                           } catch (error) {
-                            handleFirestoreError(error, OperationType.DELETE, `notes/${note.id}`);
+                            setAsyncError(createFirestoreError(error, OperationType.DELETE, `notes/${note.id}`));
                           }
                         }} 
                         className="text-red-400"
@@ -1297,7 +1372,7 @@ export default function App() {
                       (document.getElementById('task-title') as HTMLInputElement).value = '';
                       (document.getElementById('task-date') as HTMLInputElement).value = '';
                     } catch (error) {
-                      handleFirestoreError(error, OperationType.WRITE, `tasks/${taskId}`);
+                      setAsyncError(createFirestoreError(error, OperationType.WRITE, `tasks/${taskId}`));
                     }
                   }}
                   className="w-full py-3 bg-indigo-600 text-white rounded-xl font-bold shadow-lg"
@@ -1324,7 +1399,7 @@ export default function App() {
                             try {
                               await setDoc(doc(db, 'tasks', task.id), { ...task, showInCarousel: !task.showInCarousel });
                             } catch (error) {
-                              handleFirestoreError(error, OperationType.WRITE, `tasks/${task.id}`);
+                              setAsyncError(createFirestoreError(error, OperationType.WRITE, `tasks/${task.id}`));
                             }
                           }}
                           className={`p-2 rounded-lg transition-colors ${task.showInCarousel ? 'bg-amber-100 text-amber-600' : 'bg-slate-50 text-slate-400'}`}
@@ -1337,7 +1412,7 @@ export default function App() {
                             try {
                               await deleteDoc(doc(db, 'tasks', task.id));
                             } catch (error) {
-                              handleFirestoreError(error, OperationType.DELETE, `tasks/${task.id}`);
+                              setAsyncError(createFirestoreError(error, OperationType.DELETE, `tasks/${task.id}`));
                             }
                           }} 
                           className="p-2 text-red-400"
@@ -1359,7 +1434,7 @@ export default function App() {
                           try {
                             await setDoc(doc(db, 'tasks', task.id), { ...task, status: nextStatus[task.status] });
                           } catch (error) {
-                            handleFirestoreError(error, OperationType.WRITE, `tasks/${task.id}`);
+                            setAsyncError(createFirestoreError(error, OperationType.WRITE, `tasks/${task.id}`));
                           }
                         }}
                         className={`px-4 py-2 rounded-xl text-xs font-bold transition-all border-2 ${
