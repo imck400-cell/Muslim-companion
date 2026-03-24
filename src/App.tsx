@@ -34,10 +34,6 @@ import {
 } from 'lucide-react';
 import { LOGIN_PHRASE, WELCOME_MESSAGE, FOOTER_INFO, CONTACT_PHONE, WHATSAPP_LINK, DEFAULT_CATEGORIES, DEFAULT_ITEMS, THEMES, VIBRANT_COLORS } from './constants';
 import { Category, ContentItem, AppSettings, CarouselItem, Theme, Note, Task, TaskStatus } from './types';
-import { db, auth, storage, createFirestoreError, OperationType } from './firebase';
-
-import { collection, doc, setDoc, deleteDoc, onSnapshot, query, getDocs, writeBatch, getDocFromServer } from 'firebase/firestore';
-import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
 
 // --- Components ---
 
@@ -236,16 +232,40 @@ export default function App() {
   }
 
   useEffect(() => {
-    async function testConnection() {
-      try {
-        await getDocFromServer(doc(db, 'settings', 'global'));
-      } catch (error) {
-        if (error instanceof Error && (error.message.includes('Quota exceeded') || error.message.includes('quota'))) {
-          setAsyncError(createFirestoreError(error, OperationType.GET, 'settings/global'));
-        }
-      }
+    // Load data from localStorage or use defaults
+    const storedCategories = localStorage.getItem('categories');
+    const storedItems = localStorage.getItem('items');
+    const storedNotes = localStorage.getItem('notes');
+    const storedTasks = localStorage.getItem('tasks');
+    const storedSettings = localStorage.getItem('settings');
+
+    if (storedCategories) {
+      setCategories(JSON.parse(storedCategories));
+    } else {
+      setCategories(DEFAULT_CATEGORIES);
+      localStorage.setItem('categories', JSON.stringify(DEFAULT_CATEGORIES));
     }
-    testConnection();
+
+    if (storedItems) {
+      setItems(JSON.parse(storedItems));
+    } else {
+      setItems(DEFAULT_ITEMS);
+      localStorage.setItem('items', JSON.stringify(DEFAULT_ITEMS));
+    }
+
+    if (storedNotes) {
+      setNotes(JSON.parse(storedNotes));
+    }
+
+    if (storedTasks) {
+      setTasks(JSON.parse(storedTasks));
+    }
+
+    if (storedSettings) {
+      setSettings(JSON.parse(storedSettings));
+    } else {
+      localStorage.setItem('settings', JSON.stringify(settings));
+    }
   }, []);
 
   useEffect(() => {
@@ -318,132 +338,11 @@ export default function App() {
     }
   };
 
-  useEffect(() => {
-    const unsubCategories = onSnapshot(collection(db, 'categories'), (snapshot) => {
-      const cats: Category[] = [];
-      snapshot.forEach(doc => cats.push(doc.data() as Category));
-      if (cats.length === 0) {
-        // Initialize default categories
-        const batch = writeBatch(db);
-        DEFAULT_CATEGORIES.forEach(cat => {
-          batch.set(doc(db, 'categories', cat.id), { ...cat, uid: 'default' });
-        });
-        batch.commit().catch(error => setAsyncError(createFirestoreError(error, OperationType.WRITE, 'categories')));
-      } else {
-        setCategories(cats);
-        // Check for missing default categories and add them
-        const batch = writeBatch(db);
-        let needsUpdate = false;
 
-        const missingCats = DEFAULT_CATEGORIES.filter(dc => !cats.some(c => c.id === dc.id));
-        if (missingCats.length > 0) {
-          missingCats.forEach(cat => {
-            batch.set(doc(db, 'categories', cat.id), { ...cat, uid: 'default' });
-          });
-          needsUpdate = true;
-        }
-
-        DEFAULT_CATEGORIES.forEach(dc => {
-          const existing = cats.find(c => c.id === dc.id);
-          if (existing && (existing.parentId !== dc.parentId || existing.name !== dc.name || existing.color !== dc.color)) {
-            batch.update(doc(db, 'categories', dc.id), { 
-              parentId: dc.parentId,
-              name: dc.name,
-              color: dc.color
-            });
-            needsUpdate = true;
-          }
-        });
-
-        // Migrate any custom root categories to cat-useful-sites
-        cats.forEach(c => {
-          if (c.parentId === null && c.id !== 'cat-default' && c.id !== 'cat-useful-sites') {
-            batch.update(doc(db, 'categories', c.id), { parentId: 'cat-useful-sites' });
-            needsUpdate = true;
-          }
-        });
-
-        if (needsUpdate) {
-          batch.commit().catch(error => setAsyncError(createFirestoreError(error, OperationType.WRITE, 'categories-update')));
-        }
-      }
-    }, (error) => setAsyncError(createFirestoreError(error, OperationType.GET, 'categories')));
-
-    const unsubItems = onSnapshot(collection(db, 'items'), (snapshot) => {
-      const itms: ContentItem[] = [];
-      snapshot.forEach(doc => itms.push(doc.data() as ContentItem));
-      if (itms.length === 0) {
-        // Initialize default items
-        const batch = writeBatch(db);
-        DEFAULT_ITEMS.forEach(item => {
-          batch.set(doc(db, 'items', item.id), { ...item, uid: 'default' });
-        });
-        batch.commit().catch(error => setAsyncError(createFirestoreError(error, OperationType.WRITE, 'items')));
-      } else {
-        setItems(itms);
-        // Check for missing default items and add them
-        const batch = writeBatch(db);
-        let needsUpdate = false;
-
-        const missingItems = DEFAULT_ITEMS.filter(di => !itms.some(i => i.id === di.id));
-        if (missingItems.length > 0) {
-          missingItems.forEach(item => {
-            batch.set(doc(db, 'items', item.id), { ...item, uid: 'default' });
-          });
-          needsUpdate = true;
-        }
-
-        DEFAULT_ITEMS.forEach(di => {
-          const existing = itms.find(i => i.id === di.id);
-          if (existing && existing.color !== di.color) {
-            batch.update(doc(db, 'items', di.id), { color: di.color });
-            needsUpdate = true;
-          }
-        });
-
-        if (needsUpdate) {
-          batch.commit().catch(error => setAsyncError(createFirestoreError(error, OperationType.WRITE, 'items-update')));
-        }
-      }
-    }, (error) => setAsyncError(createFirestoreError(error, OperationType.GET, 'items')));
-
-    const unsubNotes = onSnapshot(collection(db, 'notes'), (snapshot) => {
-      const nts: Note[] = [];
-      snapshot.forEach(doc => nts.push(doc.data() as Note));
-      setNotes(nts);
-    }, (error) => setAsyncError(createFirestoreError(error, OperationType.GET, 'notes')));
-
-    const unsubTasks = onSnapshot(collection(db, 'tasks'), (snapshot) => {
-      const tsks: Task[] = [];
-      snapshot.forEach(doc => tsks.push(doc.data() as Task));
-      setTasks(tsks);
-    }, (error) => setAsyncError(createFirestoreError(error, OperationType.GET, 'tasks')));
-
-    const unsubSettings = onSnapshot(doc(db, 'settings', 'global'), (docSnap) => {
-      if (docSnap.exists()) {
-        setSettings(docSnap.data() as AppSettings);
-      } else {
-        setDoc(doc(db, 'settings', 'global'), settings).catch(error => setAsyncError(createFirestoreError(error, OperationType.WRITE, 'settings/global')));
-      }
-    }, (error) => setAsyncError(createFirestoreError(error, OperationType.GET, 'settings/global')));
-
-    return () => {
-      unsubCategories();
-      unsubItems();
-      unsubNotes();
-      unsubTasks();
-      unsubSettings();
-    };
-  }, []);
-
-  const updateSettings = async (newSettings: Partial<AppSettings>) => {
+  const updateSettings = (newSettings: Partial<AppSettings>) => {
     const updated = { ...settings, ...newSettings };
     setSettings(updated);
-    try {
-      await setDoc(doc(db, 'settings', 'global'), updated);
-    } catch (error) {
-      setAsyncError(createFirestoreError(error, OperationType.WRITE, 'settings/global'));
-    }
+    localStorage.setItem('settings', JSON.stringify(updated));
   };
 
   const allCarouselItems = useMemo(() => {
@@ -462,15 +361,7 @@ export default function App() {
     }
 
     if (item.url.startsWith('storage://')) {
-      const fileId = item.url.replace('storage://', '');
-      try {
-        const fileRef = ref(storage, `files/${fileId}`);
-        const downloadUrl = await getDownloadURL(fileRef);
-        window.open(downloadUrl, '_blank');
-      } catch (err) {
-        console.error('Error loading file from Storage:', err);
-        alert('الملف غير موجود أو تم حذفه من السحابة');
-      }
+      alert('عذراً، ميزة تحميل الملفات من السحابة غير متوفرة في الوضع المحلي.');
     } else if (item.type === 'link' || item.url.startsWith('http') || item.url.startsWith('blob:') || item.url.startsWith('data:')) {
       setViewingItem(item);
     } else {
@@ -479,16 +370,12 @@ export default function App() {
     }
   };
 
-  const toggleFavorite = async (id: string) => {
+  const toggleFavorite = (id: string) => {
     const item = items.find(i => i.id === id);
     if (item) {
-      const updatedItem = { ...item, isFavorite: !item.isFavorite };
-      setItems(prev => prev.map(i => i.id === id ? updatedItem : i));
-      try {
-        await setDoc(doc(db, 'items', id), updatedItem);
-      } catch (error) {
-        setAsyncError(createFirestoreError(error, OperationType.WRITE, `items/${id}`));
-      }
+      const updatedItems = items.map(i => i.id === id ? { ...i, isFavorite: !i.isFavorite } : i);
+      setItems(updatedItems);
+      localStorage.setItem('items', JSON.stringify(updatedItems));
     }
   };
 
@@ -1046,12 +933,10 @@ export default function App() {
                           color: VIBRANT_COLORS[Math.floor(Math.random() * VIBRANT_COLORS.length)],
                           uid: 'default'
                         };
-                        try {
-                          await setDoc(doc(db, 'categories', catId), newCat);
-                          (document.getElementById('new-cat-name') as HTMLInputElement).value = '';
-                        } catch (error) {
-                          setAsyncError(createFirestoreError(error, OperationType.WRITE, `categories/${catId}`));
-                        }
+                        const updatedCats = [...categories, newCat];
+                        setCategories(updatedCats);
+                        localStorage.setItem('categories', JSON.stringify(updatedCats));
+                        (document.getElementById('new-cat-name') as HTMLInputElement).value = '';
                       }}
                       className="px-4 py-2 bg-emerald-600 text-white rounded-lg text-sm font-bold"
                     >
@@ -1126,15 +1011,8 @@ export default function App() {
                         const itemId = Date.now().toString();
 
                         if (newItemType === 'pdf' && selectedPdfFile) {
-                          try {
-                            const fileRef = ref(storage, `files/${itemId}`);
-                            await uploadBytes(fileRef, selectedPdfFile);
-                            url = `storage://${itemId}`;
-                          } catch (err) {
-                            console.error('Error saving file:', err);
-                            alert('حدث خطأ أثناء حفظ الملف');
-                            return;
-                          }
+                          alert('عذراً، ميزة رفع الملفات غير متوفرة في الوضع المحلي. يرجى استخدام رابط مباشر للملف.');
+                          return;
                         }
 
                         const newItem: ContentItem = {
@@ -1149,14 +1027,12 @@ export default function App() {
                           uid: 'default'
                         };
                         
-                        try {
-                          await setDoc(doc(db, 'items', itemId), newItem);
-                          (document.getElementById('new-item-title') as HTMLInputElement).value = '';
-                          (document.getElementById('new-item-url') as HTMLInputElement).value = '';
-                          setSelectedPdfFile(null);
-                        } catch (error) {
-                          setAsyncError(createFirestoreError(error, OperationType.WRITE, `items/${itemId}`));
-                        }
+                        const updatedItems = [...items, newItem];
+                        setItems(updatedItems);
+                        localStorage.setItem('items', JSON.stringify(updatedItems));
+                        (document.getElementById('new-item-title') as HTMLInputElement).value = '';
+                        (document.getElementById('new-item-url') as HTMLInputElement).value = '';
+                        setSelectedPdfFile(null);
                       }}
                       className="w-full py-3 bg-emerald-600 text-white rounded-xl text-sm font-bold shadow-lg"
                     >
@@ -1176,21 +1052,15 @@ export default function App() {
                           <span className="font-bold text-slate-700">{cat.name} (قسم)</span>
                         </div>
                         <button 
-                          onClick={async () => {
-                            try {
-                              await deleteDoc(doc(db, 'categories', cat.id));
-                              // Also delete items in this category
-                              const itemsToDelete = items.filter(i => i.categoryId === cat.id);
-                              for (const item of itemsToDelete) {
-                                await deleteDoc(doc(db, 'items', item.id));
-                                if (item.url.startsWith('storage://')) {
-                                  const fileRef = ref(storage, `files/${item.url.replace('storage://', '')}`);
-                                  deleteObject(fileRef).catch(console.error);
-                                }
-                              }
-                            } catch (error) {
-                              setAsyncError(createFirestoreError(error, OperationType.DELETE, `categories/${cat.id}`));
-                            }
+                          onClick={() => {
+                            const updatedCats = categories.filter(c => c.id !== cat.id);
+                            const itemsToDelete = items.filter(i => i.categoryId === cat.id);
+                            const updatedItems = items.filter(i => i.categoryId !== cat.id);
+                            
+                            setCategories(updatedCats);
+                            setItems(updatedItems);
+                            localStorage.setItem('categories', JSON.stringify(updatedCats));
+                            localStorage.setItem('items', JSON.stringify(updatedItems));
                           }}
                           className="p-2 text-red-500 hover:bg-red-50 rounded-lg"
                         >
@@ -1205,16 +1075,10 @@ export default function App() {
                           <span className="text-sm text-slate-700">{item.title}</span>
                         </div>
                         <button 
-                          onClick={async () => {
-                            try {
-                              await deleteDoc(doc(db, 'items', item.id));
-                              if (item.url.startsWith('storage://')) {
-                                const fileRef = ref(storage, `files/${item.url.replace('storage://', '')}`);
-                                deleteObject(fileRef).catch(console.error);
-                              }
-                            } catch (error) {
-                              setAsyncError(createFirestoreError(error, OperationType.DELETE, `items/${item.id}`));
-                            }
+                          onClick={() => {
+                            const updatedItems = items.filter(i => i.id !== item.id);
+                            setItems(updatedItems);
+                            localStorage.setItem('items', JSON.stringify(updatedItems));
                           }}
                           className="p-2 text-red-500 hover:bg-red-50 rounded-lg"
                         >
@@ -1266,12 +1130,10 @@ export default function App() {
                       createdAt: Date.now(),
                       uid: 'default'
                     };
-                    try {
-                      await setDoc(doc(db, 'notes', noteId), newNote);
-                      (document.getElementById('note-content') as HTMLTextAreaElement).value = '';
-                    } catch (error) {
-                      setAsyncError(createFirestoreError(error, OperationType.WRITE, `notes/${noteId}`));
-                    }
+                    const updatedNotes = [...notes, newNote];
+                    setNotes(updatedNotes);
+                    localStorage.setItem('notes', JSON.stringify(updatedNotes));
+                    (document.getElementById('note-content') as HTMLTextAreaElement).value = '';
                   }}
                   className="w-full mt-4 py-3 bg-amber-600 text-white rounded-xl font-bold shadow-lg flex items-center justify-center gap-2"
                 >
@@ -1287,12 +1149,10 @@ export default function App() {
                     <div className="flex justify-between items-center text-[10px] text-slate-400 font-bold">
                       <span>{new Date(note.createdAt).toLocaleString('ar-EG')}</span>
                       <button 
-                        onClick={async () => {
-                          try {
-                            await deleteDoc(doc(db, 'notes', note.id));
-                          } catch (error) {
-                            setAsyncError(createFirestoreError(error, OperationType.DELETE, `notes/${note.id}`));
-                          }
+                        onClick={() => {
+                          const updatedNotes = notes.filter(n => n.id !== note.id);
+                          setNotes(updatedNotes);
+                          localStorage.setItem('notes', JSON.stringify(updatedNotes));
                         }} 
                         className="text-red-400"
                       >
@@ -1367,13 +1227,11 @@ export default function App() {
                       createdAt: Date.now(),
                       uid: 'default'
                     };
-                    try {
-                      await setDoc(doc(db, 'tasks', taskId), newTask);
-                      (document.getElementById('task-title') as HTMLInputElement).value = '';
-                      (document.getElementById('task-date') as HTMLInputElement).value = '';
-                    } catch (error) {
-                      setAsyncError(createFirestoreError(error, OperationType.WRITE, `tasks/${taskId}`));
-                    }
+                    const updatedTasks = [...tasks, newTask];
+                    setTasks(updatedTasks);
+                    localStorage.setItem('tasks', JSON.stringify(updatedTasks));
+                    (document.getElementById('task-title') as HTMLInputElement).value = '';
+                    (document.getElementById('task-date') as HTMLInputElement).value = '';
                   }}
                   className="w-full py-3 bg-indigo-600 text-white rounded-xl font-bold shadow-lg"
                 >
@@ -1395,12 +1253,10 @@ export default function App() {
                       </div>
                       <div className="flex items-center gap-2">
                         <button 
-                          onClick={async () => {
-                            try {
-                              await setDoc(doc(db, 'tasks', task.id), { ...task, showInCarousel: !task.showInCarousel });
-                            } catch (error) {
-                              setAsyncError(createFirestoreError(error, OperationType.WRITE, `tasks/${task.id}`));
-                            }
+                          onClick={() => {
+                            const updatedTasks = tasks.map(t => t.id === task.id ? { ...t, showInCarousel: !t.showInCarousel } : t);
+                            setTasks(updatedTasks);
+                            localStorage.setItem('tasks', JSON.stringify(updatedTasks));
                           }}
                           className={`p-2 rounded-lg transition-colors ${task.showInCarousel ? 'bg-amber-100 text-amber-600' : 'bg-slate-50 text-slate-400'}`}
                           title="إظهار في الشريط المتحرك"
@@ -1408,12 +1264,10 @@ export default function App() {
                           <Share2 className="w-4 h-4" />
                         </button>
                         <button 
-                          onClick={async () => {
-                            try {
-                              await deleteDoc(doc(db, 'tasks', task.id));
-                            } catch (error) {
-                              setAsyncError(createFirestoreError(error, OperationType.DELETE, `tasks/${task.id}`));
-                            }
+                          onClick={() => {
+                            const updatedTasks = tasks.filter(t => t.id !== task.id);
+                            setTasks(updatedTasks);
+                            localStorage.setItem('tasks', JSON.stringify(updatedTasks));
                           }} 
                           className="p-2 text-red-400"
                         >
@@ -1424,18 +1278,16 @@ export default function App() {
                     
                     <div className="flex items-center justify-between pt-2 border-t border-slate-50">
                       <button 
-                        onClick={async () => {
+                        onClick={() => {
                           const nextStatus: Record<TaskStatus, TaskStatus> = {
                             'none': 'in-progress',
                             'in-progress': 'completed',
                             'completed': 'not-completed',
                             'not-completed': 'none'
                           };
-                          try {
-                            await setDoc(doc(db, 'tasks', task.id), { ...task, status: nextStatus[task.status] });
-                          } catch (error) {
-                            setAsyncError(createFirestoreError(error, OperationType.WRITE, `tasks/${task.id}`));
-                          }
+                          const updatedTasks = tasks.map(t => t.id === task.id ? { ...t, status: nextStatus[task.status] } : t);
+                          setTasks(updatedTasks);
+                          localStorage.setItem('tasks', JSON.stringify(updatedTasks));
                         }}
                         className={`px-4 py-2 rounded-xl text-xs font-bold transition-all border-2 ${
                           task.status === 'in-progress' ? 'bg-blue-50 border-blue-200 text-blue-600' :
