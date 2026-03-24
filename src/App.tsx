@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   Home, 
@@ -159,7 +159,12 @@ function ContentCard({ item, onClick, onToggleFavorite }: { item: ContentItem, o
           <button 
             onClick={(e) => { 
               e.stopPropagation(); 
-              localStorage.setItem('defaultProgram', item.url);
+              localStorage.setItem('defaultProgramId', item.id);
+              // We need to trigger a state update in the parent, but since this is a component,
+              // we might need to pass a callback or just reload the page for simplicity,
+              // or dispatch a custom event. Let's just alert and reload for now, or we can just alert.
+              // Actually, we should probably pass a callback, but to avoid changing props, let's just use a custom event.
+              window.dispatchEvent(new CustomEvent('defaultProgramChanged', { detail: item.id }));
               alert('تم تعيين هذا البرنامج كافتراضي. سيتم فتحه تلقائياً عند الدخول.');
             }}
             title="تعيين كبرنامج افتراضي"
@@ -221,25 +226,30 @@ export default function App() {
   const [notes, setNotes] = useState<Note[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
 
-  const [autoRedirectCountdown, setAutoRedirectCountdown] = useState<number | null>(null);
-  const [defaultProgramUrl, setDefaultProgramUrl] = useState<string | null>(null);
+  const [defaultProgramId, setDefaultProgramId] = useState<string | null>(localStorage.getItem('defaultProgramId'));
+  const [showDefaultBanner, setShowDefaultBanner] = useState(true);
+  const hasAutoOpened = useRef(false);
 
   useEffect(() => {
-    const url = localStorage.getItem('defaultProgram');
-    if (url) {
-      setDefaultProgramUrl(url);
-      setAutoRedirectCountdown(3);
+    if (defaultProgramId && items.length > 0 && !hasAutoOpened.current) {
+      const defaultItem = items.find(i => i.id === defaultProgramId);
+      if (defaultItem) {
+        hasAutoOpened.current = true;
+        if (!defaultItem.openInNewTab) {
+          setViewingItem(defaultItem);
+        }
+      }
     }
+  }, [defaultProgramId, items]);
+
+  useEffect(() => {
+    const handleDefaultProgramChanged = (e: Event) => {
+      const customEvent = e as CustomEvent<string>;
+      setDefaultProgramId(customEvent.detail);
+    };
+    window.addEventListener('defaultProgramChanged', handleDefaultProgramChanged);
+    return () => window.removeEventListener('defaultProgramChanged', handleDefaultProgramChanged);
   }, []);
-
-  useEffect(() => {
-    if (autoRedirectCountdown !== null && autoRedirectCountdown > 0) {
-      const timer = setTimeout(() => setAutoRedirectCountdown(autoRedirectCountdown - 1), 1000);
-      return () => clearTimeout(timer);
-    } else if (autoRedirectCountdown === 0 && defaultProgramUrl) {
-      window.location.href = defaultProgramUrl;
-    }
-  }, [autoRedirectCountdown, defaultProgramUrl]);
 
   useEffect(() => {
     const unsubCategories = onSnapshot(collection(db, 'categories'), (snapshot) => {
@@ -254,6 +264,41 @@ export default function App() {
         batch.commit().catch(error => handleFirestoreError(error, OperationType.WRITE, 'categories'));
       } else {
         setCategories(cats);
+        // Check for missing default categories and add them
+        const batch = writeBatch(db);
+        let needsUpdate = false;
+
+        const missingCats = DEFAULT_CATEGORIES.filter(dc => !cats.some(c => c.id === dc.id));
+        if (missingCats.length > 0) {
+          missingCats.forEach(cat => {
+            batch.set(doc(db, 'categories', cat.id), { ...cat, uid: 'default' });
+          });
+          needsUpdate = true;
+        }
+
+        DEFAULT_CATEGORIES.forEach(dc => {
+          const existing = cats.find(c => c.id === dc.id);
+          if (existing && (existing.parentId !== dc.parentId || existing.name !== dc.name || existing.color !== dc.color)) {
+            batch.update(doc(db, 'categories', dc.id), { 
+              parentId: dc.parentId,
+              name: dc.name,
+              color: dc.color
+            });
+            needsUpdate = true;
+          }
+        });
+
+        // Migrate any custom root categories to cat-useful-sites
+        cats.forEach(c => {
+          if (c.parentId === null && c.id !== 'cat-default' && c.id !== 'cat-useful-sites') {
+            batch.update(doc(db, 'categories', c.id), { parentId: 'cat-useful-sites' });
+            needsUpdate = true;
+          }
+        });
+
+        if (needsUpdate) {
+          batch.commit().catch(error => handleFirestoreError(error, OperationType.WRITE, 'categories-update'));
+        }
       }
     }, (error) => handleFirestoreError(error, OperationType.GET, 'categories'));
 
@@ -270,12 +315,26 @@ export default function App() {
       } else {
         setItems(itms);
         // Check for missing default items and add them
+        const batch = writeBatch(db);
+        let needsUpdate = false;
+
         const missingItems = DEFAULT_ITEMS.filter(di => !itms.some(i => i.id === di.id));
         if (missingItems.length > 0) {
-          const batch = writeBatch(db);
           missingItems.forEach(item => {
             batch.set(doc(db, 'items', item.id), { ...item, uid: 'default' });
           });
+          needsUpdate = true;
+        }
+
+        DEFAULT_ITEMS.forEach(di => {
+          const existing = itms.find(i => i.id === di.id);
+          if (existing && existing.color !== di.color) {
+            batch.update(doc(db, 'items', di.id), { color: di.color });
+            needsUpdate = true;
+          }
+        });
+
+        if (needsUpdate) {
           batch.commit().catch(error => handleFirestoreError(error, OperationType.WRITE, 'items-update'));
         }
       }
@@ -469,7 +528,7 @@ export default function App() {
     <div className="min-h-screen flex flex-col pb-32 transition-all duration-500" style={{ background: currentTheme.background }}>
       {/* Auto Redirect Banner */}
       <AnimatePresence>
-        {autoRedirectCountdown !== null && autoRedirectCountdown >= 0 && defaultProgramUrl && (
+        {showDefaultBanner && defaultProgramId && items.find(i => i.id === defaultProgramId)?.openInNewTab && (
           <motion.div 
             initial={{ opacity: 0, y: -50 }}
             animate={{ opacity: 1, y: 0 }}
@@ -477,17 +536,25 @@ export default function App() {
             className="fixed top-0 left-0 w-full z-50 bg-emerald-600 text-white p-4 shadow-xl flex items-center justify-between"
           >
             <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-full border-2 border-white flex items-center justify-center font-bold">
-                {autoRedirectCountdown}
-              </div>
-              <span className="font-bold">جاري فتح البرنامج الافتراضي...</span>
+              <span className="font-bold">البرنامج الافتراضي: {items.find(i => i.id === defaultProgramId)?.title}</span>
             </div>
-            <button 
-              onClick={() => setAutoRedirectCountdown(null)}
-              className="px-4 py-1.5 bg-white/20 hover:bg-white/30 rounded-lg font-bold transition-colors"
-            >
-              إلغاء
-            </button>
+            <div className="flex items-center gap-2">
+              <button 
+                onClick={() => {
+                  handleItemClick(items.find(i => i.id === defaultProgramId)!);
+                  setShowDefaultBanner(false);
+                }}
+                className="px-4 py-1.5 bg-white text-emerald-600 rounded-lg font-bold transition-colors"
+              >
+                فتح الآن
+              </button>
+              <button 
+                onClick={() => setShowDefaultBanner(false)}
+                className="px-4 py-1.5 bg-white/20 hover:bg-white/30 rounded-lg font-bold transition-colors"
+              >
+                إخفاء
+              </button>
+            </div>
           </motion.div>
         )}
       </AnimatePresence>
@@ -780,18 +847,18 @@ export default function App() {
                   <Home className="w-5 h-5" style={{ color: currentTheme.primary }} />
                   البرنامج الافتراضي
                 </h3>
-                {defaultProgramUrl ? (
+                {defaultProgramId ? (
                   <div className="flex flex-col gap-3">
                     <p className="text-sm text-slate-600">
                       يوجد برنامج افتراضي معين حالياً. سيتم فتحه تلقائياً عند الدخول.
                     </p>
                     <div className="p-3 bg-slate-50 border rounded-xl text-xs text-slate-500 truncate" dir="ltr">
-                      {defaultProgramUrl}
+                      {items.find(i => i.id === defaultProgramId)?.title || 'برنامج غير معروف'}
                     </div>
                     <button 
                       onClick={() => {
-                        localStorage.removeItem('defaultProgram');
-                        setDefaultProgramUrl(null);
+                        localStorage.removeItem('defaultProgramId');
+                        setDefaultProgramId(null);
                         alert('تم إزالة البرنامج الافتراضي بنجاح.');
                       }}
                       className="w-full py-3 bg-red-50 text-red-600 rounded-xl text-sm font-bold shadow-sm border border-red-100 hover:bg-red-100 transition-colors"
@@ -891,7 +958,7 @@ export default function App() {
                           id: catId,
                           name,
                           parentId: currentCategory,
-                          color: '#' + Math.floor(Math.random()*16777215).toString(16).padStart(6, '0'),
+                          color: VIBRANT_COLORS[Math.floor(Math.random() * VIBRANT_COLORS.length)],
                           uid: 'default'
                         };
                         try {
