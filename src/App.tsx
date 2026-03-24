@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef, Component, ReactNode, ErrorInfo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   Home, 
@@ -34,12 +34,49 @@ import {
 } from 'lucide-react';
 import { LOGIN_PHRASE, WELCOME_MESSAGE, FOOTER_INFO, CONTACT_PHONE, WHATSAPP_LINK, DEFAULT_CATEGORIES, DEFAULT_ITEMS, THEMES, VIBRANT_COLORS } from './constants';
 import { Category, ContentItem, AppSettings, CarouselItem, Theme, Note, Task, TaskStatus } from './types';
-import { db, auth, storage, handleFirestoreError, OperationType } from './firebase';
+import { db, auth, storage, handleFirestoreError, OperationType, testFirestoreConnection } from './firebase';
 
 import { collection, doc, setDoc, deleteDoc, onSnapshot, query, getDocs, writeBatch } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
 
 // --- Components ---
+
+export class ErrorBoundary extends React.Component<any, any> {
+  state = { hasError: false };
+
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+
+  componentDidCatch(error: Error, errorInfo: ErrorInfo) {
+    console.error('ErrorBoundary caught an error:', error, errorInfo);
+  }
+
+  render() {
+    console.log('ErrorBoundary rendering, hasError:', (this as any).state.hasError);
+    if ((this as any).state.hasError) {
+      return (
+        <div className="min-h-screen flex items-center justify-center bg-slate-50 p-6 text-center">
+          <div className="max-w-md p-8 bg-white rounded-3xl shadow-xl border border-slate-100">
+            <div className="w-16 h-16 bg-red-100 text-red-600 rounded-full flex items-center justify-center mx-auto mb-6">
+              <X className="w-8 h-8" />
+            </div>
+            <h2 className="text-2xl font-bold text-slate-800 mb-4">عذراً، حدث خطأ غير متوقع</h2>
+            <p className="text-slate-600 mb-8">لقد واجهنا مشكلة في تحميل هذه الصفحة. يرجى محاولة إعادة تحميل التطبيق.</p>
+            <button 
+              onClick={() => window.location.reload()}
+              className="w-full py-3 bg-emerald-600 text-white rounded-xl font-bold shadow-lg hover:bg-emerald-700 transition-colors"
+            >
+              إعادة تحميل التطبيق
+            </button>
+          </div>
+        </div>
+      );
+    }
+
+    return (this as any).props.children;
+  }
+}
 
 const Carousel = ({ items, speed }: { items: CarouselItem[], speed: number }) => {
   if (!items || items.length === 0) return null;
@@ -186,7 +223,10 @@ function ContentCard({ item, onClick, onToggleFavorite }: { item: ContentItem, o
 
 // --- Main App ---
 
+console.log('App.tsx loading...');
+
 export default function App() {
+  console.log('App rendering...');
   const [activeTab, setActiveTab] = useState<'home' | 'recent' | 'favorites' | 'settings'>('home');
   const [showQuickAdd, setShowQuickAdd] = useState(false);
   const [selectedPdfFile, setSelectedPdfFile] = useState<File | null>(null);
@@ -194,6 +234,7 @@ export default function App() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [items, setItems] = useState<ContentItem[]>([]);
   const [recentIds, setRecentIds] = useState<string[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [settings, setSettings] = useState<AppSettings>({
     language: 'ar',
     themeId: 'modern-emerald',
@@ -218,6 +259,8 @@ export default function App() {
   const currentTheme = useMemo(() => THEMES.find(t => t.id === settings.themeId) || THEMES[0], [settings.themeId]);
 
   const [viewingItem, setViewingItem] = useState<ContentItem | null>(null);
+  const [isAuthReady, setIsAuthReady] = useState(false);
+  const [isQuotaExceeded, setIsQuotaExceeded] = useState(false);
   const [currentCategory, setCurrentCategory] = useState<string | null>(null);
   const [isThemesCollapsed, setIsThemesCollapsed] = useState(true);
   const [targetCategoryId, setTargetCategoryId] = useState<string>('cat-default');
@@ -235,9 +278,8 @@ export default function App() {
       const defaultItem = items.find(i => i.id === defaultProgramId);
       if (defaultItem) {
         hasAutoOpened.current = true;
-        if (!defaultItem.openInNewTab) {
-          setViewingItem(defaultItem);
-        }
+        // We don't auto-open in a new tab here to avoid popup blockers
+        // The banner will show and the user can click it.
       }
     }
   }, [defaultProgramId, items]);
@@ -252,6 +294,42 @@ export default function App() {
   }, []);
 
   useEffect(() => {
+    testFirestoreConnection();
+    
+    // Set auth ready after 2 seconds regardless, to avoid getting stuck
+    const timer = setTimeout(() => {
+      console.log('Auth timeout reached, forcing ready');
+      setIsAuthReady(true);
+    }, 2000);
+
+    const unsubAuth = auth.onAuthStateChanged((user) => {
+      console.log('Auth state changed:', user?.uid);
+      clearTimeout(timer);
+      setIsAuthReady(true);
+    });
+
+    return () => {
+      clearTimeout(timer);
+      unsubAuth();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!isAuthReady) return;
+
+    console.log('Starting Firestore listeners...');
+
+    const handleError = (error: any, path: string) => {
+      const errInfo = handleFirestoreError(error, OperationType.GET, path);
+      if (errInfo && errInfo.error.includes('Quota exceeded')) {
+        setIsQuotaExceeded(true);
+        // Fallback to defaults if not already loaded
+        setCategories(prev => prev.length === 0 ? DEFAULT_CATEGORIES : prev);
+        setItems(prev => prev.length === 0 ? DEFAULT_ITEMS : prev);
+        setIsLoading(false);
+      }
+    };
+
     const unsubCategories = onSnapshot(collection(db, 'categories'), (snapshot) => {
       const cats: Category[] = [];
       snapshot.forEach(doc => cats.push(doc.data() as Category));
@@ -261,7 +339,7 @@ export default function App() {
         DEFAULT_CATEGORIES.forEach(cat => {
           batch.set(doc(db, 'categories', cat.id), { ...cat, uid: 'default' });
         });
-        batch.commit().catch(error => handleFirestoreError(error, OperationType.WRITE, 'categories'));
+        batch.commit().catch(error => handleError(error, 'categories-init'));
       } else {
         setCategories(cats);
         // Check for missing default categories and add them
@@ -297,10 +375,10 @@ export default function App() {
         });
 
         if (needsUpdate) {
-          batch.commit().catch(error => handleFirestoreError(error, OperationType.WRITE, 'categories-update'));
+          batch.commit().catch(error => handleError(error, 'categories-update'));
         }
       }
-    }, (error) => handleFirestoreError(error, OperationType.GET, 'categories'));
+    }, (error) => handleError(error, 'categories'));
 
     const unsubItems = onSnapshot(collection(db, 'items'), (snapshot) => {
       const itms: ContentItem[] = [];
@@ -311,7 +389,7 @@ export default function App() {
         DEFAULT_ITEMS.forEach(item => {
           batch.set(doc(db, 'items', item.id), { ...item, uid: 'default' });
         });
-        batch.commit().catch(error => handleFirestoreError(error, OperationType.WRITE, 'items'));
+        batch.commit().catch(error => handleError(error, 'items-init'));
       } else {
         setItems(itms);
         // Check for missing default items and add them
@@ -335,30 +413,34 @@ export default function App() {
         });
 
         if (needsUpdate) {
-          batch.commit().catch(error => handleFirestoreError(error, OperationType.WRITE, 'items-update'));
+          batch.commit().catch(error => handleError(error, 'items-update'));
         }
       }
-    }, (error) => handleFirestoreError(error, OperationType.GET, 'items'));
+    }, (error) => handleError(error, 'items'));
 
     const unsubNotes = onSnapshot(collection(db, 'notes'), (snapshot) => {
       const nts: Note[] = [];
       snapshot.forEach(doc => nts.push(doc.data() as Note));
       setNotes(nts);
-    }, (error) => handleFirestoreError(error, OperationType.GET, 'notes'));
+    }, (error) => handleError(error, 'notes'));
 
     const unsubTasks = onSnapshot(collection(db, 'tasks'), (snapshot) => {
       const tsks: Task[] = [];
       snapshot.forEach(doc => tsks.push(doc.data() as Task));
       setTasks(tsks);
-    }, (error) => handleFirestoreError(error, OperationType.GET, 'tasks'));
+    }, (error) => handleError(error, 'tasks'));
 
     const unsubSettings = onSnapshot(doc(db, 'settings', 'global'), (docSnap) => {
       if (docSnap.exists()) {
         setSettings(docSnap.data() as AppSettings);
       } else {
-        setDoc(doc(db, 'settings', 'global'), settings).catch(error => handleFirestoreError(error, OperationType.WRITE, 'settings/global'));
+        setDoc(doc(db, 'settings', 'global'), settings).catch(error => handleError(error, 'settings/global-init'));
       }
-    }, (error) => handleFirestoreError(error, OperationType.GET, 'settings/global'));
+      setIsLoading(false);
+    }, (error) => {
+      handleError(error, 'settings/global');
+      setIsLoading(false);
+    });
 
     return () => {
       unsubCategories();
@@ -367,7 +449,18 @@ export default function App() {
       unsubTasks();
       unsubSettings();
     };
-  }, []);
+  }, [isAuthReady]);
+
+  // Loading timeout for stability
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (isLoading) {
+        console.warn('Loading timed out, forcing app to show');
+        setIsLoading(false);
+      }
+    }, 5000); // 5 seconds timeout
+    return () => clearTimeout(timer);
+  }, [isLoading]);
 
   const updateSettings = async (newSettings: Partial<AppSettings>) => {
     const updated = { ...settings, ...newSettings };
@@ -389,27 +482,21 @@ export default function App() {
   const handleItemClick = async (item: ContentItem) => {
     setRecentIds(prev => [item.id, ...prev.filter(id => id !== item.id)].slice(0, 10));
     
-    if (item.openInNewTab) {
-      window.open(item.url, '_blank');
-      return;
-    }
-
+    let finalUrl = item.url;
     if (item.url.startsWith('storage://')) {
       const fileId = item.url.replace('storage://', '');
       try {
         const fileRef = ref(storage, `files/${fileId}`);
-        const downloadUrl = await getDownloadURL(fileRef);
-        window.open(downloadUrl, '_blank');
+        finalUrl = await getDownloadURL(fileRef);
       } catch (err) {
         console.error('Error loading file from Storage:', err);
         alert('الملف غير موجود أو تم حذفه من السحابة');
+        return;
       }
-    } else if (item.type === 'link' || item.url.startsWith('http') || item.url.startsWith('blob:') || item.url.startsWith('data:')) {
-      setViewingItem(item);
-    } else {
-      // Try to handle local file paths or just open in new tab
-      window.open(item.url, '_blank');
     }
+    
+    // Always open in a new tab as requested
+    window.open(finalUrl, '_blank');
   };
 
   const toggleFavorite = async (id: string) => {
@@ -449,93 +536,51 @@ export default function App() {
     });
   }, [categories, currentCategory]);
 
-  if (viewingItem) {
+  if (isLoading) {
+    console.log('App is in loading state...');
     return (
-      <div className="fixed inset-0 bg-white z-50 flex flex-col">
-        <div className="p-4 flex items-center justify-between border-b bg-white shadow-sm">
-          <div className="flex items-center gap-2">
-            <button 
-              onClick={() => setViewingItem(null)}
-              className="p-2 bg-slate-100 rounded-full hover:bg-slate-200 transition-colors"
-            >
-              <ArrowRight className="w-6 h-6 text-slate-700" />
-            </button>
-            <h2 className="font-bold text-slate-800 truncate max-w-[150px] sm:max-w-xs">{viewingItem.title}</h2>
-          </div>
-          
-          <div className="flex items-center gap-2">
-            <button 
-              onClick={() => {
-                navigator.clipboard.writeText(viewingItem.url);
-                alert('تم نسخ الرابط بنجاح');
-              }}
-              className="p-2 bg-slate-100 rounded-full hover:bg-slate-200 transition-colors"
-              title="نسخ الرابط"
-            >
-              <Copy className="w-5 h-5 text-slate-600" />
-            </button>
-            <button 
-              onClick={() => {
-                const iframe = document.querySelector('iframe');
-                if (iframe) iframe.src = iframe.src;
-              }}
-              className="p-2 bg-slate-100 rounded-full hover:bg-slate-200 transition-colors"
-              title="تحديث"
-            >
-              <History className="w-5 h-5 text-slate-600" />
-            </button>
-            <a 
-              href={viewingItem.url} 
-              target="_blank" 
-              rel="noreferrer"
-              className="flex items-center gap-2 px-3 py-2 bg-emerald-600 text-white rounded-xl text-xs font-bold hover:bg-emerald-700 transition-shadow shadow-md"
-            >
-              <ExternalLink className="w-4 h-4" />
-              <span>فتح في نافذة جديدة</span>
-            </a>
-          </div>
-        </div>
-        <div className="flex-1 overflow-hidden relative bg-slate-50">
-          {viewingItem.type === 'link' ? (
-            <div className="w-full h-full relative">
-              <iframe 
-                src={viewingItem.url} 
-                className="w-full h-full border-none" 
-                title={viewingItem.title}
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share; geolocation; microphone; camera"
-                allowFullScreen
-              />
-              {/* Optional: Overlay message if iframe might be blocked */}
-              <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-0 hover:opacity-100 transition-opacity bg-white/10">
-                <p className="bg-black/60 text-white px-4 py-2 rounded-full text-xs">إذا لم يظهر المحتوى، اضغط على زر "فتح في نافذة جديدة" أعلاه</p>
-              </div>
-            </div>
-          ) : (
-            <div className="flex items-center justify-center h-full bg-slate-50 p-8 text-center">
-              <div>
-                <FileText className="w-16 h-16 text-slate-300 mx-auto mb-4" />
-                <p className="text-slate-500">معاينة ملف PDF (سيتم فتحه في نافذة جديدة)</p>
-                <a 
-                  href={viewingItem.url} 
-                  target="_blank" 
-                  rel="noreferrer"
-                  className="mt-4 inline-block px-6 py-3 bg-emerald-600 text-white rounded-xl font-bold"
-                >
-                  فتح الملف
-                </a>
-              </div>
-            </div>
-          )}
-        </div>
-        <div className="bg-white border-t border-slate-200">
-          <Carousel items={allCarouselItems} speed={settings.carouselSpeed} />
+      <div className="min-h-screen flex items-center justify-center bg-slate-50" style={{ background: currentTheme.background }}>
+        <div className="flex flex-col items-center gap-4">
+          <div className="w-12 h-12 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin" />
+          <p className="text-slate-600 font-bold animate-pulse">جاري التحميل...</p>
         </div>
       </div>
     );
   }
 
+  if (viewingItem) {
+    // This state is now bypassed by handleItemClick, but we keep the logic 
+    // for safety or if we want to revert easily. 
+    // However, the user wants all links to open in a new window.
+    window.open(viewingItem.url, '_blank');
+    setViewingItem(null);
+    return null;
+  }
+
   return (
     <div className="min-h-screen flex flex-col pb-32 transition-all duration-500" style={{ background: currentTheme.background }}>
+      {/* Quota Exceeded Banner */}
+      <AnimatePresence>
+        {isQuotaExceeded && (
+          <motion.div 
+            initial={{ opacity: 0, y: -50 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -50 }}
+            className="fixed top-0 left-0 w-full z-50 bg-amber-600 text-white p-4 shadow-xl flex items-center justify-between"
+          >
+            <div className="flex items-center gap-3">
+              <span className="font-bold">تنبيه: تم تجاوز حصة الاستخدام (Quota Exceeded). سيتم استخدام البيانات المحلية الافتراضية. ستتم إعادة تعيين الحصة غداً.</span>
+            </div>
+            <button 
+              onClick={() => setIsQuotaExceeded(false)}
+              className="px-4 py-1.5 bg-white/20 hover:bg-white/30 rounded-lg font-bold transition-colors"
+            >
+              إغلاق
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Auto Redirect Banner */}
       <AnimatePresence>
         {showDefaultBanner && defaultProgramId && items.find(i => i.id === defaultProgramId)?.openInNewTab && (

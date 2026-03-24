@@ -1,6 +1,6 @@
 import { initializeApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
-import { getFirestore } from 'firebase/firestore';
+import { getFirestore, doc, getDocFromServer } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
 import firebaseConfig from '../firebase-applet-config.json';
 
@@ -38,8 +38,9 @@ export interface FirestoreErrorInfo {
 }
 
 export function handleFirestoreError(error: unknown, operationType: OperationType, path: string | null) {
+  const errorMessage = error instanceof Error ? error.message : String(error);
   const errInfo: FirestoreErrorInfo = {
-    error: error instanceof Error ? error.message : String(error),
+    error: errorMessage,
     authInfo: {
       userId: auth.currentUser?.uid,
       email: auth.currentUser?.email,
@@ -56,6 +57,27 @@ export function handleFirestoreError(error: unknown, operationType: OperationTyp
     operationType,
     path
   }
+  
+  if (errorMessage.includes('Quota exceeded')) {
+    console.warn('Firestore Quota Exceeded. The app will attempt to use local fallback data. Quota resets daily at midnight Pacific Time.');
+    // We still log it as an error for the agent/developer to see in logs
+    console.error('Firestore Error (Quota): ', JSON.stringify(errInfo));
+    // We don't throw here to allow the app to continue with fallback logic if implemented
+    return errInfo;
+  }
+
   console.error('Firestore Error: ', JSON.stringify(errInfo));
   throw new Error(JSON.stringify(errInfo));
+}
+
+export async function testFirestoreConnection() {
+  console.log('Testing Firestore connection...');
+  try {
+    await getDocFromServer(doc(db, 'test', 'connection'));
+    console.log('Firestore connection test complete.');
+  } catch (error) {
+    if (error instanceof Error && error.message.includes('the client is offline')) {
+      console.error("Please check your Firebase configuration. The client is offline.");
+    }
+  }
 }
