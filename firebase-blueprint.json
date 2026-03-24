@@ -1,0 +1,106 @@
+{
+  "entities": {
+    "Category": {
+      "title": "Category",
+      "description": "A category for items",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "parentId": { "type": "string", "description": "Optional parent category ID" },
+        "color": { "type": "string" },
+        "uid": { "type": "string", "description": "Owner user ID" }
+      },
+      "required": ["id", "name", "color", "uid"]
+    },
+    "ContentItem": {
+      "title": "ContentItem",
+      "description": "A link or a PDF file",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "url": { "type": "string" },
+        "type": { "type": "string", "enum": ["link", "pdf"] },
+        "color": { "type": "string" },
+        "categoryId": { "type": "string" },
+        "createdAt": { "type": "number" },
+        "isFavorite": { "type": "boolean" },
+        "uid": { "type": "string", "description": "Owner user ID" }
+      },
+      "required": ["id", "title", "url", "type", "color", "categoryId", "createdAt", "isFavorite", "uid"]
+    },
+    "Note": {
+      "title": "Note",
+      "description": "A notebook entry",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "content": { "type": "string" },
+        "date": { "type": "string" },
+        "color": { "type": "string" },
+        "uid": { "type": "string", "description": "Owner user ID" }
+      },
+      "required": ["id", "title", "content", "date", "color", "uid"]
+    },
+    "Task": {
+      "title": "Task",
+      "description": "A task entry",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "completed": { "type": "boolean" },
+        "date": { "type": "string" },
+        "showInCarousel": { "type": "boolean" },
+        "uid": { "type": "string", "description": "Owner user ID" }
+      },
+      "required": ["id", "title", "completed", "date", "showInCarousel", "uid"]
+    },
+    "Settings": {
+      "title": "Settings",
+      "description": "User settings",
+      "type": "object",
+      "properties": {
+        "language": { "type": "string" },
+        "themeId": { "type": "string" },
+        "carouselItems": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": { "type": "string" },
+              "text": { "type": "string" }
+            }
+          }
+        },
+        "carouselSpeed": { "type": "number" },
+        "uid": { "type": "string", "description": "Owner user ID" }
+      },
+      "required": ["language", "themeId", "carouselItems", "carouselSpeed", "uid"]
+    }
+  },
+  "firestore": {
+    "/categories/{categoryId}": {
+      "schema": { "$ref": "#/entities/Category" },
+      "description": "Categories collection"
+    },
+    "/items/{itemId}": {
+      "schema": { "$ref": "#/entities/ContentItem" },
+      "description": "Content items collection"
+    },
+    "/notes/{noteId}": {
+      "schema": { "$ref": "#/entities/Note" },
+      "description": "Notes collection"
+    },
+    "/tasks/{taskId}": {
+      "schema": { "$ref": "#/entities/Task" },
+      "description": "Tasks collection"
+    },
+    "/settings/{settingId}": {
+      "schema": { "$ref": "#/entities/Settings" },
+      "description": "Settings collection"
+    }
+  }
+}
