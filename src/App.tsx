@@ -436,7 +436,17 @@ export default function App() {
   }, [activeTab, items, recentIds, currentCategory]);
 
   const activeCategories = useMemo(() => {
-    return categories.filter(c => c.parentId === currentCategory);
+    const filtered = categories.filter(c => c.parentId === currentCategory);
+    // Sort based on DEFAULT_CATEGORIES order if they are default categories
+    return [...filtered].sort((a, b) => {
+      const indexA = DEFAULT_CATEGORIES.findIndex(dc => dc.id === a.id);
+      const indexB = DEFAULT_CATEGORIES.findIndex(dc => dc.id === b.id);
+      
+      if (indexA !== -1 && indexB !== -1) return indexA - indexB;
+      if (indexA !== -1) return -1;
+      if (indexB !== -1) return 1;
+      return 0;
+    });
   }, [categories, currentCategory]);
 
   if (viewingItem) {

@@ -33,12 +33,12 @@ export const WHATSAPP_LINK = "https://wa.me/967780804012";
 export const DEFAULT_CATEGORIES: Category[] = [
   { id: 'cat-default', name: 'برامج نافعة لك', parentId: null, color: '#10b981' },
   { id: 'cat-useful-sites', name: 'مواقع وبرامج تحتاجها كثيرا', parentId: null, color: '#f43f5e' },
-  { id: 'cat-programming', name: 'روابط برمجية', parentId: 'cat-useful-sites', color: '#3b82f6' },
   { id: 'cat-tafsir', name: 'تفسير القرآن الكريم', parentId: 'cat-useful-sites', color: '#8b5cf6' },
   { id: 'cat-hadith', name: 'الحديث النبوي', parentId: 'cat-useful-sites', color: '#f59e0b' },
-  { id: 'cat-fiqh', name: 'الفقه المعتمد في الفتوى', parentId: 'cat-useful-sites', color: '#ef4444' },
-  { id: 'cat-admin', name: 'المواقع الإدارية (الهيئات الرسمية)', parentId: 'cat-useful-sites', color: '#ec4899' },
-  { id: 'cat-edu', name: 'التعليم الشرعي المجاني', parentId: 'cat-useful-sites', color: '#14b8a6' },
+  { id: 'cat-fiqh', name: 'مسائل فقهية', parentId: 'cat-useful-sites', color: '#ef4444' },
+  { id: 'cat-edu', name: 'التعليم الشرعي', parentId: 'cat-useful-sites', color: '#14b8a6' },
+  { id: 'cat-admin', name: 'الهيئات الرسمية', parentId: 'cat-useful-sites', color: '#ec4899' },
+  { id: 'cat-programming', name: 'روابط برمجية', parentId: 'cat-useful-sites', color: '#3b82f6' },
 ];
 
 export const VIBRANT_COLORS = [
