@@ -347,6 +347,14 @@ export default function App() {
       return;
     }
 
+    if (!db || !db.app) {
+      console.warn('Firestore is not initialized. Using fallback data.');
+      setCategories(DEFAULT_CATEGORIES);
+      setItems(DEFAULT_ITEMS);
+      setIsLoading(false);
+      return;
+    }
+
     const unsubCategories = onSnapshot(collection(db, 'categories'), (snapshot) => {
       const cats: Category[] = [];
       snapshot.forEach(doc => cats.push(doc.data() as Category));
@@ -497,7 +505,7 @@ export default function App() {
     return [...carouselItems, ...taskItems];
   }, [settings.carouselItems, tasks]);
 
-  const handleItemClick = async (item: ContentItem) => {
+  const handleItemClick = (item: ContentItem) => {
     if (!item) return;
     
     let finalUrl = item.url || '';
@@ -506,55 +514,69 @@ export default function App() {
       return;
     }
 
-    // Open window synchronously to bypass popup blockers on mobile browsers
-    let win: Window | null = null;
-    try {
-      win = window.open('', '_blank', 'noopener,noreferrer');
-    } catch (e) {
-      console.error("Could not open window synchronously:", e);
-    }
-
-    try {
-      setRecentIds(prev => {
-        if (!Array.isArray(prev)) return [item.id];
-        return [item.id, ...prev.filter(id => id !== item.id)].slice(0, 10);
-      });
-      
-      if (finalUrl.startsWith('storage://')) {
-        const fileId = finalUrl.replace('storage://', '');
-        try {
-          const fileRef = ref(storage, `files/${fileId}`);
-          finalUrl = await getDownloadURL(fileRef);
-        } catch (err) {
-          console.error('Error loading file from Storage:', err);
-          if (win) win.close();
-          toast.error('الملف غير موجود أو تم حذفه من السحابة');
-          return;
+    // Handle regular links synchronously to bypass popup blockers
+    if (!finalUrl.startsWith('storage://')) {
+      // Prepare finalUrl
+      let processedUrl = finalUrl;
+      if (!/^[a-zA-Z][a-zA-Z\d+\-.]*:/.test(processedUrl)) {
+        if (processedUrl.startsWith('//')) {
+          processedUrl = 'https:' + processedUrl;
+        } else {
+          processedUrl = 'https://' + processedUrl;
         }
-      } else if (!/^[a-zA-Z][a-zA-Z\d+\-.]*:/.test(finalUrl)) {
-        finalUrl = 'https://' + finalUrl;
-      }
-      
-      if (!finalUrl) {
-        if (win) win.close();
-        return;
       }
 
-      if (win) {
-        win.location.href = finalUrl;
+      const isAppProtocol = /^(mailto:|tel:|whatsapp:|tg:|sms:)/i.test(processedUrl);
+      
+      if (isAppProtocol) {
+        window.location.href = processedUrl;
       } else {
-        // Fallback if synchronous open failed
-        const fallbackWin = window.open(finalUrl, '_blank', 'noopener,noreferrer');
-        if (!fallbackWin) {
-          // If popup is blocked, navigate the current window as a last resort
-          window.location.href = finalUrl;
+        const win = window.open(processedUrl, '_blank', 'noopener,noreferrer');
+        if (!win) {
+          window.location.href = processedUrl;
         }
       }
-    } catch (error) {
-      console.error('Error in handleItemClick:', error);
-      if (win) win.close();
-      toast.error('حدث خطأ غير متوقع عند محاولة فتح الرابط');
+
+      // Do background tasks after opening
+      setRecentIds(prev => {
+        const safePrev = Array.isArray(prev) ? prev : [];
+        const filtered = safePrev.filter(id => id !== item.id);
+        return [item.id, ...filtered].slice(0, 10);
+      });
+      toast.info(`جاري فتح: ${item.title}`);
+      return;
     }
+
+    // Handle storage files (must be async)
+    const openStorage = async () => {
+      // Open a blank window immediately to bypass popup blockers
+      const win = window.open('', '_blank', 'noopener,noreferrer');
+      try {
+        const fileId = finalUrl.replace('storage://', '');
+        const fileRef = ref(storage, `files/${fileId}`);
+        const downloadUrl = await getDownloadURL(fileRef);
+        if (win) {
+          win.location.href = downloadUrl;
+        } else {
+          const fallbackWin = window.open(downloadUrl, '_blank', 'noopener,noreferrer');
+          if (!fallbackWin) {
+            window.location.href = downloadUrl;
+          }
+        }
+      } catch (err) {
+        console.error('Error loading file from Storage:', err);
+        if (win) win.close();
+        toast.error('الملف غير موجود أو تم حذفه من السحابة');
+      }
+    };
+    openStorage();
+
+    // Background tasks
+    setRecentIds(prev => {
+      const safePrev = Array.isArray(prev) ? prev : [];
+      const filtered = safePrev.filter(id => id !== item.id);
+      return [item.id, ...filtered].slice(0, 10);
+    });
   };
 
   const toggleFavorite = async (id: string) => {
@@ -1501,6 +1523,29 @@ export default function App() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Footer */}
+      <footer className="bg-white/40 backdrop-blur-md border-t border-white/20 py-8 px-6 mb-24 text-center">
+        <p className="text-slate-600 text-xs leading-relaxed mb-4">
+          {FOOTER_INFO}
+        </p>
+        <div className="flex justify-center gap-4">
+          <button 
+            onClick={() => window.open(WHATSAPP_LINK, '_blank', 'noopener,noreferrer')}
+            className="flex items-center gap-2 px-4 py-2 bg-emerald-50 text-emerald-600 rounded-xl text-xs font-bold border border-emerald-100"
+          >
+            <MessageCircle className="w-4 h-4" />
+            تواصل عبر واتساب
+          </button>
+          <button 
+            onClick={() => window.location.href = `tel:${CONTACT_PHONE}`}
+            className="flex items-center gap-2 px-4 py-2 bg-blue-50 text-blue-600 rounded-xl text-xs font-bold border border-blue-100"
+          >
+            <Phone className="w-4 h-4" />
+            اتصال هاتفي
+          </button>
+        </div>
+      </footer>
 
       {activeTab !== 'settings' && (
         <div className="fixed bottom-[48px] left-0 w-full z-[60]">
