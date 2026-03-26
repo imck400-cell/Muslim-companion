@@ -235,6 +235,7 @@ function ContentCard({ item, onClick, onToggleFavorite }: { item: ContentItem, o
 // --- Main App ---
 
 export default function App() {
+  console.log("App component rendering");
   const [activeTab, setActiveTab] = useState<'home' | 'recent' | 'favorites' | 'settings'>('home');
   const [showQuickAdd, setShowQuickAdd] = useState(false);
   const [selectedPdfFile, setSelectedPdfFile] = useState<File | null>(null);
