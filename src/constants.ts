@@ -191,5 +191,4 @@ export const DEFAULT_ITEMS: ContentItem[] = [
   { id: 'item-38', title: 'أكاديمية SeekersGuidance', type: 'link', url: 'https://seekersguidance.org/ar', color: '#8b5cf6', categoryId: 'cat-edu', createdAt: Date.now(), isFavorite: false, openInNewTab: true },
   { id: 'item-39', title: 'أكاديمية زاد (Zad Academy)', type: 'link', url: 'https://zadgroup.net', color: '#0ea5e9', categoryId: 'cat-edu', createdAt: Date.now(), isFavorite: false, openInNewTab: true },
   { id: 'item-40', title: 'إسلام ويب – المكتبة العلمية والتعليمية', type: 'link', url: 'https://library.islamweb.net', color: '#10b981', categoryId: 'cat-edu', createdAt: Date.now(), isFavorite: false, openInNewTab: true },
-  { id: 'item-41', title: 'القرآن تدبر وعمل', type: 'link', url: 'https://altadabbur.com/', color: '#8b5cf6', categoryId: 'cat-tafsir', createdAt: Date.now(), isFavorite: false, openInNewTab: true },
 ];

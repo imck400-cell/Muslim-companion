@@ -4,29 +4,11 @@ import { getFirestore, doc, getDocFromServer } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
 import firebaseConfig from '../firebase-applet-config.json';
 
-let app: any;
-let db: any;
-let auth: any;
-let storage: any;
-let googleProvider: any;
-
-try {
-  app = initializeApp(firebaseConfig);
-  db = getFirestore(app, firebaseConfig.firestoreDatabaseId);
-  auth = getAuth(app);
-  storage = getStorage(app);
-  googleProvider = new GoogleAuthProvider();
-} catch (error) {
-  console.error("Failed to initialize Firebase:", error);
-  // Provide dummy objects to prevent immediate crashes, allowing ErrorBoundary to catch later errors
-  app = {};
-  db = {} as any;
-  auth = { currentUser: null, onAuthStateChanged: () => () => {} } as any;
-  storage = {} as any;
-  googleProvider = {} as any;
-}
-
-export { db, auth, storage, googleProvider };
+const app = initializeApp(firebaseConfig);
+export const db = getFirestore(app, firebaseConfig.firestoreDatabaseId);
+export const auth = getAuth(app);
+export const storage = getStorage(app);
+export const googleProvider = new GoogleAuthProvider();
 
 export enum OperationType {
   CREATE = 'create',
@@ -61,12 +43,12 @@ export function handleFirestoreError(error: unknown, operationType: OperationTyp
   const errInfo: FirestoreErrorInfo = {
     error: errorMessage,
     authInfo: {
-      userId: auth?.currentUser?.uid,
-      email: auth?.currentUser?.email,
-      emailVerified: auth?.currentUser?.emailVerified,
-      isAnonymous: auth?.currentUser?.isAnonymous,
-      tenantId: auth?.currentUser?.tenantId,
-      providerInfo: auth?.currentUser?.providerData?.map((provider: any) => ({
+      userId: auth.currentUser?.uid,
+      email: auth.currentUser?.email,
+      emailVerified: auth.currentUser?.emailVerified,
+      isAnonymous: auth.currentUser?.isAnonymous,
+      tenantId: auth.currentUser?.tenantId,
+      providerInfo: auth.currentUser?.providerData.map(provider => ({
         providerId: provider.providerId,
         displayName: provider.displayName,
         email: provider.email,
