@@ -3,6 +3,8 @@ import {createRoot} from 'react-dom/client';
 import App, { ErrorBoundary } from './App';
 import './index.css';
 
+console.log("main.tsx loaded");
+
 /*
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
@@ -16,9 +18,7 @@ if ('serviceWorker' in navigator) {
 */
 
 createRoot(document.getElementById('root')!).render(
-  <StrictMode>
-    <ErrorBoundary>
-      <App />
-    </ErrorBoundary>
-  </StrictMode>,
+  <ErrorBoundary>
+    <App />
+  </ErrorBoundary>
 );

@@ -235,7 +235,6 @@ function ContentCard({ item, onClick, onToggleFavorite }: { item: ContentItem, o
 // --- Main App ---
 
 export default function App() {
-  console.log("App component rendering");
   const [activeTab, setActiveTab] = useState<'home' | 'recent' | 'favorites' | 'settings'>('home');
   const [showQuickAdd, setShowQuickAdd] = useState(false);
   const [selectedPdfFile, setSelectedPdfFile] = useState<File | null>(null);
@@ -299,8 +298,6 @@ export default function App() {
   }, [isLoading, defaultProgramId, items]);
 
   useEffect(() => {
-    testFirestoreConnection();
-    
     const handleDefaultProgramChanged = (e: Event) => {
       const customEvent = e as CustomEvent<string>;
       setDefaultProgramId(customEvent.detail);
