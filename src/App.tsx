@@ -85,7 +85,8 @@ export class ErrorBoundary extends React.Component<{ children: ReactNode }, { ha
 
 const Carousel = ({ items, speed }: { items: CarouselItem[], speed: number }) => {
   const colors = ['#f43f5e', '#8b5cf6', '#0ea5e9', '#10b981', '#f59e0b', '#ec4899'];
-  const duration = 130 - speed;
+  const safeSpeed = typeof speed === 'number' && !isNaN(speed) ? speed : 30;
+  const duration = Math.max(10, 130 - safeSpeed);
 
   const baseList = useMemo(() => {
     if (!Array.isArray(items) || items.length === 0) return [];
@@ -426,8 +427,8 @@ export default function App() {
     }, (error) => handleError(error, 'tasks'));
 
     const unsubSettings = onSnapshot(doc(db, 'settings', 'global'), (docSnap) => {
-      if (docSnap.exists()) {
-        setSettings(docSnap.data() as AppSettings);
+      if (docSnap.exists() && docSnap.data()) {
+        setSettings({ ...settings, ...(docSnap.data() as AppSettings) });
       } else {
         setDoc(doc(db, 'settings', 'global'), settings).catch(error => handleError(error, 'settings/global-init'));
       }
