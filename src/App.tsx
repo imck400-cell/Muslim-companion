@@ -33,6 +33,7 @@ import {
   Share2,
   User
 } from 'lucide-react';
+import { Toaster, toast } from 'sonner';
 import { LOGIN_PHRASE, WELCOME_MESSAGE, FOOTER_INFO, CONTACT_PHONE, WHATSAPP_LINK, DEFAULT_CATEGORIES, DEFAULT_ITEMS, THEMES, VIBRANT_COLORS } from './constants';
 import { Category, ContentItem, AppSettings, CarouselItem, Theme, Note, Task, TaskStatus } from './types';
 import { db, auth, storage, handleFirestoreError, OperationType, testFirestoreConnection, googleProvider } from './firebase';
@@ -43,19 +44,22 @@ import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage
 
 // --- Components ---
 
-export class ErrorBoundary extends React.Component<any, any> {
-  state = { hasError: false };
+export class ErrorBoundary extends React.Component<{ children: ReactNode }, { hasError: false }> {
+  constructor(props: { children: ReactNode }) {
+    super(props);
+    this.state = { hasError: false };
+  }
 
   static getDerivedStateFromError() {
     return { hasError: true };
   }
 
   componentDidCatch(error: Error, errorInfo: ErrorInfo) {
-    // Error caught
+    console.error('ErrorBoundary caught an error:', error, errorInfo);
   }
 
   render() {
-    if ((this as any).state.hasError) {
+    if (this.state.hasError) {
       return (
         <div className="min-h-screen flex items-center justify-center bg-slate-50 p-6 text-center">
           <div className="max-w-md p-8 bg-white rounded-3xl shadow-xl border border-slate-100">
@@ -75,7 +79,7 @@ export class ErrorBoundary extends React.Component<any, any> {
       );
     }
 
-    return (this as any).props.children;
+    return this.props.children;
   }
 }
 
@@ -197,13 +201,14 @@ function ContentCard({ item, onClick, onToggleFavorite }: { item: ContentItem, o
           <button 
             onClick={(e) => { 
               e.stopPropagation(); 
-              localStorage.setItem('defaultProgramId', item.id);
-              // We need to trigger a state update in the parent, but since this is a component,
-              // we might need to pass a callback or just reload the page for simplicity,
-              // or dispatch a custom event. Let's just alert and reload for now, or we can just alert.
-              // Actually, we should probably pass a callback, but to avoid changing props, let's just use a custom event.
-              window.dispatchEvent(new CustomEvent('defaultProgramChanged', { detail: item.id }));
-              alert('تم تعيين هذا البرنامج كافتراضي. سيتم فتحه تلقائياً عند الدخول.');
+              try {
+                localStorage.setItem('defaultProgramId', item.id);
+                window.dispatchEvent(new CustomEvent('defaultProgramChanged', { detail: item.id }));
+                toast.success('تم تعيين هذا البرنامج كافتراضي. سيتم فتحه تلقائياً عند الدخول.');
+              } catch (err) {
+                console.error('Error setting default program:', err);
+                toast.error('حدث خطأ أثناء تعيين البرنامج الافتراضي');
+              }
             }}
             title="تعيين كبرنامج افتراضي"
             className="p-1.5 hover:bg-white/30 rounded-full transition-colors backdrop-blur-md border border-white/10 shrink-0"
@@ -224,10 +229,7 @@ function ContentCard({ item, onClick, onToggleFavorite }: { item: ContentItem, o
 
 // --- Main App ---
 
-console.log('App.tsx loading...');
-
 export default function App() {
-  console.log('App rendering...');
   const [activeTab, setActiveTab] = useState<'home' | 'recent' | 'favorites' | 'settings'>('home');
   const [showQuickAdd, setShowQuickAdd] = useState(false);
   const [selectedPdfFile, setSelectedPdfFile] = useState<File | null>(null);
@@ -269,9 +271,17 @@ export default function App() {
   const [notes, setNotes] = useState<Note[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
 
-  const [defaultProgramId, setDefaultProgramId] = useState<string | null>(localStorage.getItem('defaultProgramId'));
+  const [defaultProgramId, setDefaultProgramId] = useState<string | null>(() => {
+    try {
+      return localStorage.getItem('defaultProgramId');
+    } catch (e) {
+      return null;
+    }
+  });
 
   useEffect(() => {
+    testFirestoreConnection();
+    
     const handleDefaultProgramChanged = (e: Event) => {
       const customEvent = e as CustomEvent<string>;
       setDefaultProgramId(customEvent.detail);
@@ -461,23 +471,42 @@ export default function App() {
   }, [settings.carouselItems, tasks]);
 
   const handleItemClick = async (item: ContentItem) => {
-    setRecentIds(prev => [item.id, ...prev.filter(id => id !== item.id)].slice(0, 10));
-    
-    let finalUrl = item.url;
-    if (item.url.startsWith('storage://')) {
-      const fileId = item.url.replace('storage://', '');
-      try {
-        const fileRef = ref(storage, `files/${fileId}`);
-        finalUrl = await getDownloadURL(fileRef);
-      } catch (err) {
-        console.error('Error loading file from Storage:', err);
-        alert('الملف غير موجود أو تم حذفه من السحابة');
+    if (!item) return;
+    try {
+      setRecentIds(prev => {
+        if (!Array.isArray(prev)) return [item.id];
+        return [item.id, ...prev.filter(id => id !== item.id)].slice(0, 10);
+      });
+      
+      let finalUrl = item.url || '';
+      if (!finalUrl) {
+        toast.error('الرابط غير متاح لهذا العنصر');
         return;
       }
+
+      if (finalUrl.startsWith('storage://')) {
+        const fileId = finalUrl.replace('storage://', '');
+        try {
+          const fileRef = ref(storage, `files/${fileId}`);
+          finalUrl = await getDownloadURL(fileRef);
+        } catch (err) {
+          console.error('Error loading file from Storage:', err);
+          toast.error('الملف غير موجود أو تم حذفه من السحابة');
+          return;
+        }
+      }
+      
+      if (!finalUrl) return;
+
+      // Always open in a new tab as requested
+      const win = window.open(finalUrl, '_blank');
+      if (!win) {
+        toast.error('تم حظر فتح النافذة الجديدة. يرجى السماح بالنوافذ المنبثقة.');
+      }
+    } catch (error) {
+      console.error('Error in handleItemClick:', error);
+      toast.error('حدث خطأ غير متوقع عند محاولة فتح الرابط');
     }
-    
-    // Always open in a new tab as requested
-    window.open(finalUrl, '_blank');
   };
 
   const toggleFavorite = async (id: string) => {
@@ -530,6 +559,9 @@ export default function App() {
 
   return (
     <div className="min-h-screen flex flex-col pb-32 transition-all duration-500" style={{ background: currentTheme.background }}>
+      {/* Toaster for notifications */}
+      <Toaster position="top-center" richColors />
+
       {/* Quota Exceeded Banner */}
       <AnimatePresence>
         {isQuotaExceeded && (
@@ -888,9 +920,14 @@ export default function App() {
                     </div>
                     <button 
                       onClick={() => {
-                        localStorage.removeItem('defaultProgramId');
-                        setDefaultProgramId(null);
-                        alert('تم إزالة البرنامج الافتراضي بنجاح.');
+                        try {
+                          localStorage.removeItem('defaultProgramId');
+                          setDefaultProgramId(null);
+                          toast.success('تم إزالة البرنامج الافتراضي بنجاح.');
+                        } catch (err) {
+                          console.error('Error removing default program:', err);
+                          toast.error('حدث خطأ أثناء إزالة البرنامج الافتراضي');
+                        }
                       }}
                       className="w-full py-3 bg-red-50 text-red-600 rounded-xl text-sm font-bold shadow-sm border border-red-100 hover:bg-red-100 transition-colors"
                     >
@@ -1065,7 +1102,7 @@ export default function App() {
                         let url = (document.getElementById('new-item-url') as HTMLInputElement).value;
                         
                         if (!title || (!url && newItemType === 'link') || (!selectedPdfFile && newItemType === 'pdf')) {
-                          alert('يرجى إدخال العنوان والرابط أو اختيار ملف');
+                          toast.error('يرجى إدخال العنوان والرابط أو اختيار ملف');
                           return;
                         }
 
@@ -1078,7 +1115,7 @@ export default function App() {
                             url = `storage://${itemId}`;
                           } catch (err) {
                             console.error('Error saving file:', err);
-                            alert('حدث خطأ أثناء حفظ الملف');
+                            toast.error('حدث خطأ أثناء حفظ الملف');
                             return;
                           }
                         }
@@ -1248,8 +1285,13 @@ export default function App() {
                     <p className="text-slate-700 text-sm leading-relaxed whitespace-pre-wrap">{note.content}</p>
                     <button 
                       onClick={() => {
-                        navigator.clipboard.writeText(note.content);
-                        alert('تم نسخ النص');
+                        try {
+                          navigator.clipboard.writeText(note.content);
+                          toast.success('تم نسخ النص');
+                        } catch (err) {
+                          console.error('Error copying text:', err);
+                          toast.error('فشل نسخ النص');
+                        }
                       }}
                       className="text-xs font-bold text-amber-600 flex items-center gap-1"
                     >
