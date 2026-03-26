@@ -407,7 +407,27 @@ export default function App() {
 
     const unsubItems = onSnapshot(collection(db, 'items'), (snapshot) => {
       const itms: ContentItem[] = [];
-      snapshot.forEach(doc => itms.push(doc.data() as ContentItem));
+      const itemsToDelete: string[] = [];
+      
+      snapshot.forEach(doc => {
+        const data = doc.data() as ContentItem;
+        // Explicitly filter out 'المفرغ الصوتي' or any item containing it
+        if (data.title && (data.title.includes('المفرغ الصوتي') || data.title.includes('المفرغ'))) {
+          itemsToDelete.push(doc.id);
+        } else {
+          itms.push(data);
+        }
+      });
+
+      // Delete forbidden items from Firestore if found
+      if (itemsToDelete.length > 0) {
+        const batch = writeBatch(db);
+        itemsToDelete.forEach(id => {
+          batch.delete(doc(db, 'items', id));
+        });
+        batch.commit().catch(error => handleError(error, 'items-cleanup'));
+      }
+
       if (itms.length === 0) {
         // Initialize default items
         const batch = writeBatch(db);
