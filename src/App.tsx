@@ -44,7 +44,7 @@ import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage
 
 // --- Components ---
 
-export class ErrorBoundary extends React.Component<{ children: ReactNode }, { hasError: false }> {
+export class ErrorBoundary extends React.Component<{ children: ReactNode }, { hasError: boolean }> {
   constructor(props: { children: ReactNode }) {
     super(props);
     this.state = { hasError: false };
@@ -84,16 +84,20 @@ export class ErrorBoundary extends React.Component<{ children: ReactNode }, { ha
 }
 
 const Carousel = ({ items, speed }: { items: CarouselItem[], speed: number }) => {
-  if (!items || items.length === 0) return null;
-
   const colors = ['#f43f5e', '#8b5cf6', '#0ea5e9', '#10b981', '#f59e0b', '#ec4899'];
   const duration = 130 - speed;
 
-  // الحل النهائي: تكرار العناصر لضمان عرض أكبر من الشاشة
-  let baseList = [...items];
-  while (baseList.length < 15) {
-    baseList = [...baseList, ...items];
-  }
+  const baseList = useMemo(() => {
+    if (!Array.isArray(items) || items.length === 0) return [];
+    let list = [...items];
+    // Repeat items to ensure the marquee is smooth and covers the screen
+    while (list.length > 0 && list.length < 20) {
+      list = [...list, ...items];
+    }
+    return list;
+  }, [items]);
+
+  if (baseList.length === 0) return null;
 
   return (
     <div className="w-full overflow-hidden bg-white/30 backdrop-blur-md py-0.5 border-t border-white/20 select-none" dir="rtl">
@@ -464,10 +468,11 @@ export default function App() {
   };
 
   const allCarouselItems = useMemo(() => {
-    const taskItems = tasks
-      .filter(t => t.showInCarousel)
+    const carouselItems = Array.isArray(settings.carouselItems) ? settings.carouselItems : [];
+    const taskItems = (Array.isArray(tasks) ? tasks : [])
+      .filter(t => t && t.showInCarousel)
       .map(t => ({ id: t.id, text: `مهمة: ${t.title} - ${t.date}` }));
-    return [...settings.carouselItems, ...taskItems];
+    return [...carouselItems, ...taskItems];
   }, [settings.carouselItems, tasks]);
 
   const handleItemClick = async (item: ContentItem) => {
@@ -523,17 +528,21 @@ export default function App() {
   };
 
   const filteredItems = useMemo(() => {
-    if (activeTab === 'favorites') return items.filter(i => i.isFavorite);
-    if (activeTab === 'recent') return recentIds.map(id => items.find(i => i.id === id)).filter(Boolean) as ContentItem[];
+    const safeItems = Array.isArray(items) ? items : [];
+    const safeRecentIds = Array.isArray(recentIds) ? recentIds : [];
+    
+    if (activeTab === 'favorites') return safeItems.filter(i => i && i.isFavorite);
+    if (activeTab === 'recent') return safeRecentIds.map(id => safeItems.find(i => i && i.id === id)).filter(Boolean) as ContentItem[];
     if (activeTab === 'home') {
       if (!currentCategory) return []; // Don't show links on home screen, only categories
-      return items.filter(i => i.categoryId === currentCategory);
+      return safeItems.filter(i => i && i.categoryId === currentCategory);
     }
-    return items;
+    return safeItems;
   }, [activeTab, items, recentIds, currentCategory]);
 
   const activeCategories = useMemo(() => {
-    const filtered = categories.filter(c => c.parentId === currentCategory);
+    const safeCategories = Array.isArray(categories) ? categories : [];
+    const filtered = safeCategories.filter(c => c && c.parentId === currentCategory);
     // Sort based on DEFAULT_CATEGORIES order if they are default categories
     return [...filtered].sort((a, b) => {
       const indexA = DEFAULT_CATEGORIES.findIndex(dc => dc.id === a.id);
