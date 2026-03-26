@@ -239,10 +239,10 @@ export default function App() {
   const [showQuickAdd, setShowQuickAdd] = useState(false);
   const [selectedPdfFile, setSelectedPdfFile] = useState<File | null>(null);
   const [newItemType, setNewItemType] = useState<'link' | 'pdf'>('link');
-  const [categories, setCategories] = useState<Category[]>([]);
-  const [items, setItems] = useState<ContentItem[]>([]);
+  const [categories, setCategories] = useState<Category[]>(DEFAULT_CATEGORIES);
+  const [items, setItems] = useState<ContentItem[]>(DEFAULT_ITEMS);
   const [recentIds, setRecentIds] = useState<string[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
   const [settings, setSettings] = useState<AppSettings>({
     language: 'ar',
     themeId: 'modern-emerald',
@@ -266,7 +266,7 @@ export default function App() {
 
   const currentTheme = useMemo(() => THEMES.find(t => t.id === settings.themeId) || THEMES[0], [settings.themeId]);
 
-  const [isAuthReady, setIsAuthReady] = useState(false);
+  const [isAuthReady, setIsAuthReady] = useState(true);
   const [isQuotaExceeded, setIsQuotaExceeded] = useState(false);
   const [currentCategory, setCurrentCategory] = useState<string | null>(null);
   const [isThemesCollapsed, setIsThemesCollapsed] = useState(true);
@@ -309,25 +309,6 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    // Set auth ready after 2 seconds regardless, to avoid getting stuck
-    const timer = setTimeout(() => {
-      setIsAuthReady(true);
-    }, 2000);
-
-    const unsubAuth = auth.onAuthStateChanged((user) => {
-      clearTimeout(timer);
-      setIsAuthReady(true);
-    });
-
-    return () => {
-      clearTimeout(timer);
-      unsubAuth();
-    };
-  }, []);
-
-  useEffect(() => {
-    if (!isAuthReady) return;
-
     const handleError = (error: any, path: string) => {
       const errInfo = handleFirestoreError(error, OperationType.GET, path);
       if (errInfo && errInfo.error.includes('Quota exceeded')) {
