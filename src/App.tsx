@@ -51,11 +51,10 @@ export class ErrorBoundary extends React.Component<any, any> {
   }
 
   componentDidCatch(error: Error, errorInfo: ErrorInfo) {
-    console.error('ErrorBoundary caught an error:', error, errorInfo);
+    // Error caught
   }
 
   render() {
-    console.log('ErrorBoundary rendering, hasError:', (this as any).state.hasError);
     if ((this as any).state.hasError) {
       return (
         <div className="min-h-screen flex items-center justify-center bg-slate-50 p-6 text-center">
@@ -260,7 +259,6 @@ export default function App() {
 
   const currentTheme = useMemo(() => THEMES.find(t => t.id === settings.themeId) || THEMES[0], [settings.themeId]);
 
-  const [viewingItem, setViewingItem] = useState<ContentItem | null>(null);
   const [isAuthReady, setIsAuthReady] = useState(false);
   const [isQuotaExceeded, setIsQuotaExceeded] = useState(false);
   const [currentCategory, setCurrentCategory] = useState<string | null>(null);
@@ -272,19 +270,6 @@ export default function App() {
   const [tasks, setTasks] = useState<Task[]>([]);
 
   const [defaultProgramId, setDefaultProgramId] = useState<string | null>(localStorage.getItem('defaultProgramId'));
-  const [showDefaultBanner, setShowDefaultBanner] = useState(true);
-  const hasAutoOpened = useRef(false);
-
-  useEffect(() => {
-    if (defaultProgramId && items.length > 0 && !hasAutoOpened.current) {
-      const defaultItem = items.find(i => i.id === defaultProgramId);
-      if (defaultItem) {
-        hasAutoOpened.current = true;
-        // We don't auto-open in a new tab here to avoid popup blockers
-        // The banner will show and the user can click it.
-      }
-    }
-  }, [defaultProgramId, items]);
 
   useEffect(() => {
     const handleDefaultProgramChanged = (e: Event) => {
@@ -296,16 +281,12 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    testFirestoreConnection();
-    
     // Set auth ready after 2 seconds regardless, to avoid getting stuck
     const timer = setTimeout(() => {
-      console.log('Auth timeout reached, forcing ready');
       setIsAuthReady(true);
     }, 2000);
 
     const unsubAuth = auth.onAuthStateChanged((user) => {
-      console.log('Auth state changed:', user?.uid);
       clearTimeout(timer);
       setIsAuthReady(true);
     });
@@ -318,8 +299,6 @@ export default function App() {
 
   useEffect(() => {
     if (!isAuthReady) return;
-
-    console.log('Starting Firestore listeners...');
 
     const handleError = (error: any, path: string) => {
       const errInfo = handleFirestoreError(error, OperationType.GET, path);
@@ -539,7 +518,6 @@ export default function App() {
   }, [categories, currentCategory]);
 
   if (isLoading) {
-    console.log('App is in loading state...');
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-50" style={{ background: currentTheme.background }}>
         <div className="flex flex-col items-center gap-4">
@@ -548,15 +526,6 @@ export default function App() {
         </div>
       </div>
     );
-  }
-
-  if (viewingItem) {
-    // This state is now bypassed by handleItemClick, but we keep the logic 
-    // for safety or if we want to revert easily. 
-    // However, the user wants all links to open in a new window.
-    window.open(viewingItem.url, '_blank');
-    setViewingItem(null);
-    return null;
   }
 
   return (
@@ -579,39 +548,6 @@ export default function App() {
             >
               إغلاق
             </button>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* Auto Redirect Banner */}
-      <AnimatePresence>
-        {showDefaultBanner && defaultProgramId && items.find(i => i.id === defaultProgramId)?.openInNewTab && (
-          <motion.div 
-            initial={{ opacity: 0, y: -50 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -50 }}
-            className="fixed top-0 left-0 w-full z-50 bg-emerald-600 text-white p-4 shadow-xl flex items-center justify-between"
-          >
-            <div className="flex items-center gap-3">
-              <span className="font-bold">البرنامج الافتراضي: {items.find(i => i.id === defaultProgramId)?.title}</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <button 
-                onClick={() => {
-                  handleItemClick(items.find(i => i.id === defaultProgramId)!);
-                  setShowDefaultBanner(false);
-                }}
-                className="px-4 py-1.5 bg-white text-emerald-600 rounded-lg font-bold transition-colors"
-              >
-                فتح الآن
-              </button>
-              <button 
-                onClick={() => setShowDefaultBanner(false)}
-                className="px-4 py-1.5 bg-white/20 hover:bg-white/30 rounded-lg font-bold transition-colors"
-              >
-                إخفاء
-              </button>
-            </div>
           </motion.div>
         )}
       </AnimatePresence>
