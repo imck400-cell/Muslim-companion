@@ -33,6 +33,7 @@ import {
   Share2,
   User
 } from 'lucide-react';
+import { Toaster, toast } from 'sonner';
 import { LOGIN_PHRASE, WELCOME_MESSAGE, FOOTER_INFO, CONTACT_PHONE, WHATSAPP_LINK, DEFAULT_CATEGORIES, DEFAULT_ITEMS, THEMES, VIBRANT_COLORS } from './constants';
 import { Category, ContentItem, AppSettings, CarouselItem, Theme, Note, Task, TaskStatus } from './types';
 import { db, auth, storage, handleFirestoreError, OperationType, testFirestoreConnection, googleProvider } from './firebase';
@@ -43,8 +44,11 @@ import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage
 
 // --- Components ---
 
-export class ErrorBoundary extends React.Component<any, any> {
-  state = { hasError: false };
+export class ErrorBoundary extends React.Component<{ children: ReactNode }, { hasError: boolean }> {
+  constructor(props: { children: ReactNode }) {
+    super(props);
+    this.state = { hasError: false };
+  }
 
   static getDerivedStateFromError() {
     return { hasError: true };
@@ -55,8 +59,7 @@ export class ErrorBoundary extends React.Component<any, any> {
   }
 
   render() {
-    console.log('ErrorBoundary rendering, hasError:', (this as any).state.hasError);
-    if ((this as any).state.hasError) {
+    if (this.state.hasError) {
       return (
         <div className="min-h-screen flex items-center justify-center bg-slate-50 p-6 text-center">
           <div className="max-w-md p-8 bg-white rounded-3xl shadow-xl border border-slate-100">
@@ -76,21 +79,26 @@ export class ErrorBoundary extends React.Component<any, any> {
       );
     }
 
-    return (this as any).props.children;
+    return this.props.children;
   }
 }
 
 const Carousel = ({ items, speed }: { items: CarouselItem[], speed: number }) => {
-  if (!items || items.length === 0) return null;
-
   const colors = ['#f43f5e', '#8b5cf6', '#0ea5e9', '#10b981', '#f59e0b', '#ec4899'];
-  const duration = 130 - speed;
+  const safeSpeed = typeof speed === 'number' && !isNaN(speed) ? speed : 30;
+  const duration = Math.max(10, 130 - safeSpeed);
 
-  // الحل النهائي: تكرار العناصر لضمان عرض أكبر من الشاشة
-  let baseList = [...items];
-  while (baseList.length < 15) {
-    baseList = [...baseList, ...items];
-  }
+  const baseList = useMemo(() => {
+    if (!Array.isArray(items) || items.length === 0) return [];
+    let list = [...items];
+    // Repeat items to ensure the marquee is smooth and covers the screen
+    while (list.length > 0 && list.length < 20) {
+      list = [...list, ...items];
+    }
+    return list;
+  }, [items]);
+
+  if (baseList.length === 0) return null;
 
   return (
     <div className="w-full overflow-hidden bg-white/30 backdrop-blur-md py-0.5 border-t border-white/20 select-none" dir="rtl">
@@ -198,13 +206,14 @@ function ContentCard({ item, onClick, onToggleFavorite }: { item: ContentItem, o
           <button 
             onClick={(e) => { 
               e.stopPropagation(); 
-              localStorage.setItem('defaultProgramId', item.id);
-              // We need to trigger a state update in the parent, but since this is a component,
-              // we might need to pass a callback or just reload the page for simplicity,
-              // or dispatch a custom event. Let's just alert and reload for now, or we can just alert.
-              // Actually, we should probably pass a callback, but to avoid changing props, let's just use a custom event.
-              window.dispatchEvent(new CustomEvent('defaultProgramChanged', { detail: item.id }));
-              alert('تم تعيين هذا البرنامج كافتراضي. سيتم فتحه تلقائياً عند الدخول.');
+              try {
+                localStorage.setItem('defaultProgramId', item.id);
+                window.dispatchEvent(new CustomEvent('defaultProgramChanged', { detail: item.id }));
+                toast.success('تم تعيين هذا البرنامج كافتراضي. سيتم فتحه تلقائياً عند الدخول.');
+              } catch (err) {
+                console.error('Error setting default program:', err);
+                toast.error('حدث خطأ أثناء تعيين البرنامج الافتراضي');
+              }
             }}
             title="تعيين كبرنامج افتراضي"
             className="p-1.5 hover:bg-white/30 rounded-full transition-colors backdrop-blur-md border border-white/10 shrink-0"
@@ -225,18 +234,15 @@ function ContentCard({ item, onClick, onToggleFavorite }: { item: ContentItem, o
 
 // --- Main App ---
 
-console.log('App.tsx loading...');
-
 export default function App() {
-  console.log('App rendering...');
   const [activeTab, setActiveTab] = useState<'home' | 'recent' | 'favorites' | 'settings'>('home');
   const [showQuickAdd, setShowQuickAdd] = useState(false);
   const [selectedPdfFile, setSelectedPdfFile] = useState<File | null>(null);
   const [newItemType, setNewItemType] = useState<'link' | 'pdf'>('link');
-  const [categories, setCategories] = useState<Category[]>([]);
-  const [items, setItems] = useState<ContentItem[]>([]);
+  const [categories, setCategories] = useState<Category[]>(DEFAULT_CATEGORIES);
+  const [items, setItems] = useState<ContentItem[]>(DEFAULT_ITEMS);
   const [recentIds, setRecentIds] = useState<string[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
   const [settings, setSettings] = useState<AppSettings>({
     language: 'ar',
     themeId: 'modern-emerald',
@@ -260,31 +266,36 @@ export default function App() {
 
   const currentTheme = useMemo(() => THEMES.find(t => t.id === settings.themeId) || THEMES[0], [settings.themeId]);
 
-  const [viewingItem, setViewingItem] = useState<ContentItem | null>(null);
-  const [isAuthReady, setIsAuthReady] = useState(false);
+  const [isAuthReady, setIsAuthReady] = useState(true);
   const [isQuotaExceeded, setIsQuotaExceeded] = useState(false);
   const [currentCategory, setCurrentCategory] = useState<string | null>(null);
   const [isThemesCollapsed, setIsThemesCollapsed] = useState(true);
   const [targetCategoryId, setTargetCategoryId] = useState<string>('cat-default');
   const [activeModule, setActiveModule] = useState<'none' | 'notebook' | 'tasks'>('none');
-
   const [notes, setNotes] = useState<Note[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
+  const [showDefaultProgramModal, setShowDefaultProgramModal] = useState(false);
+  const [defaultProgramItem, setDefaultProgramItem] = useState<ContentItem | null>(null);
+  const hasOpenedDefault = useRef(false);
 
-  const [defaultProgramId, setDefaultProgramId] = useState<string | null>(localStorage.getItem('defaultProgramId'));
-  const [showDefaultBanner, setShowDefaultBanner] = useState(true);
-  const hasAutoOpened = useRef(false);
+  const [defaultProgramId, setDefaultProgramId] = useState<string | null>(() => {
+    try {
+      return localStorage.getItem('defaultProgramId');
+    } catch (e) {
+      return null;
+    }
+  });
 
   useEffect(() => {
-    if (defaultProgramId && items.length > 0 && !hasAutoOpened.current) {
-      const defaultItem = items.find(i => i.id === defaultProgramId);
-      if (defaultItem) {
-        hasAutoOpened.current = true;
-        // We don't auto-open in a new tab here to avoid popup blockers
-        // The banner will show and the user can click it.
+    if (!isLoading && defaultProgramId && !hasOpenedDefault.current) {
+      const item = items.find(i => i.id === defaultProgramId);
+      if (item) {
+        hasOpenedDefault.current = true;
+        setDefaultProgramItem(item);
+        setShowDefaultProgramModal(true);
       }
     }
-  }, [defaultProgramId, items]);
+  }, [isLoading, defaultProgramId, items]);
 
   useEffect(() => {
     const handleDefaultProgramChanged = (e: Event) => {
@@ -296,31 +307,6 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    testFirestoreConnection();
-    
-    // Set auth ready after 2 seconds regardless, to avoid getting stuck
-    const timer = setTimeout(() => {
-      console.log('Auth timeout reached, forcing ready');
-      setIsAuthReady(true);
-    }, 2000);
-
-    const unsubAuth = auth.onAuthStateChanged((user) => {
-      console.log('Auth state changed:', user?.uid);
-      clearTimeout(timer);
-      setIsAuthReady(true);
-    });
-
-    return () => {
-      clearTimeout(timer);
-      unsubAuth();
-    };
-  }, []);
-
-  useEffect(() => {
-    if (!isAuthReady) return;
-
-    console.log('Starting Firestore listeners...');
-
     const handleError = (error: any, path: string) => {
       const errInfo = handleFirestoreError(error, OperationType.GET, path);
       if (errInfo && errInfo.error.includes('Quota exceeded')) {
@@ -331,6 +317,22 @@ export default function App() {
         setIsLoading(false);
       }
     };
+
+    if (!db || typeof db.collection !== 'function' && !db.type) {
+      console.warn("Firestore is not initialized. Using fallback data.");
+      setCategories(prev => prev.length === 0 ? DEFAULT_CATEGORIES : prev);
+      setItems(prev => prev.length === 0 ? DEFAULT_ITEMS : prev);
+      setIsLoading(false);
+      return;
+    }
+
+    if (!db || !db.app) {
+      console.warn('Firestore is not initialized. Using fallback data.');
+      setCategories(DEFAULT_CATEGORIES);
+      setItems(DEFAULT_ITEMS);
+      setIsLoading(false);
+      return;
+    }
 
     const unsubCategories = onSnapshot(collection(db, 'categories'), (snapshot) => {
       const cats: Category[] = [];
@@ -384,7 +386,27 @@ export default function App() {
 
     const unsubItems = onSnapshot(collection(db, 'items'), (snapshot) => {
       const itms: ContentItem[] = [];
-      snapshot.forEach(doc => itms.push(doc.data() as ContentItem));
+      const itemsToDelete: string[] = [];
+      
+      snapshot.forEach(doc => {
+        const data = doc.data() as ContentItem;
+        // Explicitly filter out 'المفرغ الصوتي' or any item containing it
+        if (data.title && (data.title.includes('المفرغ الصوتي') || data.title.includes('المفرغ'))) {
+          itemsToDelete.push(doc.id);
+        } else {
+          itms.push(data);
+        }
+      });
+
+      // Delete forbidden items from Firestore if found
+      if (itemsToDelete.length > 0) {
+        const batch = writeBatch(db);
+        itemsToDelete.forEach(id => {
+          batch.delete(doc(db, 'items', id));
+        });
+        batch.commit().catch(error => handleError(error, 'items-cleanup'));
+      }
+
       if (itms.length === 0) {
         // Initialize default items
         const batch = writeBatch(db);
@@ -433,8 +455,8 @@ export default function App() {
     }, (error) => handleError(error, 'tasks'));
 
     const unsubSettings = onSnapshot(doc(db, 'settings', 'global'), (docSnap) => {
-      if (docSnap.exists()) {
-        setSettings(docSnap.data() as AppSettings);
+      if (docSnap.exists() && docSnap.data()) {
+        setSettings({ ...settings, ...(docSnap.data() as AppSettings) });
       } else {
         setDoc(doc(db, 'settings', 'global'), settings).catch(error => handleError(error, 'settings/global-init'));
       }
@@ -475,30 +497,85 @@ export default function App() {
   };
 
   const allCarouselItems = useMemo(() => {
-    const taskItems = tasks
-      .filter(t => t.showInCarousel)
+    const carouselItems = Array.isArray(settings.carouselItems) ? settings.carouselItems : [];
+    const taskItems = (Array.isArray(tasks) ? tasks : [])
+      .filter(t => t && t.showInCarousel)
       .map(t => ({ id: t.id, text: `مهمة: ${t.title} - ${t.date}` }));
-    return [...settings.carouselItems, ...taskItems];
+    return [...carouselItems, ...taskItems];
   }, [settings.carouselItems, tasks]);
 
-  const handleItemClick = async (item: ContentItem) => {
-    setRecentIds(prev => [item.id, ...prev.filter(id => id !== item.id)].slice(0, 10));
+  const handleItemClick = (item: ContentItem) => {
+    if (!item) return;
     
-    let finalUrl = item.url;
-    if (item.url.startsWith('storage://')) {
-      const fileId = item.url.replace('storage://', '');
+    let finalUrl = item.url || '';
+    if (!finalUrl) {
+      toast.error('الرابط غير متاح لهذا العنصر');
+      return;
+    }
+
+    // Handle regular links synchronously to bypass popup blockers
+    if (!finalUrl.startsWith('storage://')) {
+      // Prepare finalUrl
+      let processedUrl = finalUrl;
+      if (!/^[a-zA-Z][a-zA-Z\d+\-.]*:/.test(processedUrl)) {
+        if (processedUrl.startsWith('//')) {
+          processedUrl = 'https:' + processedUrl;
+        } else {
+          processedUrl = 'https://' + processedUrl;
+        }
+      }
+
+      const isAppProtocol = /^(mailto:|tel:|whatsapp:|tg:|sms:)/i.test(processedUrl);
+      
+      if (isAppProtocol) {
+        window.location.href = processedUrl;
+      } else {
+        const win = window.open(processedUrl, '_blank', 'noopener,noreferrer');
+        if (!win) {
+          window.location.href = processedUrl;
+        }
+      }
+
+      // Do background tasks after opening
+      setRecentIds(prev => {
+        const safePrev = Array.isArray(prev) ? prev : [];
+        const filtered = safePrev.filter(id => id !== item.id);
+        return [item.id, ...filtered].slice(0, 10);
+      });
+      toast.info(`جاري فتح: ${item.title}`);
+      return;
+    }
+
+    // Handle storage files (must be async)
+    const openStorage = async () => {
+      // Open a blank window immediately to bypass popup blockers
+      const win = window.open('', '_blank', 'noopener,noreferrer');
       try {
+        const fileId = finalUrl.replace('storage://', '');
         const fileRef = ref(storage, `files/${fileId}`);
-        finalUrl = await getDownloadURL(fileRef);
+        const downloadUrl = await getDownloadURL(fileRef);
+        if (win) {
+          win.location.href = downloadUrl;
+        } else {
+          const fallbackWin = window.open(downloadUrl, '_blank', 'noopener,noreferrer');
+          if (!fallbackWin) {
+            window.location.href = downloadUrl;
+          }
+        }
       } catch (err) {
         console.error('Error loading file from Storage:', err);
-        alert('الملف غير موجود أو تم حذفه من السحابة');
-        return;
+        if (win) win.close();
+        toast.error('الملف غير موجود أو تم حذفه من السحابة');
       }
-    }
-    
-    // Always open in a new tab as requested
-    window.open(finalUrl, '_blank');
+    };
+    openStorage();
+
+    // Background tasks
+    setRecentIds(prev => {
+      const safePrev = Array.isArray(prev) ? prev : [];
+      const filtered = safePrev.filter(id => id !== item.id);
+      return [item.id, ...filtered].slice(0, 10);
+    });
   };
 
   const toggleFavorite = async (id: string) => {
@@ -515,17 +592,21 @@ export default function App() {
   };
 
   const filteredItems = useMemo(() => {
-    if (activeTab === 'favorites') return items.filter(i => i.isFavorite);
-    if (activeTab === 'recent') return recentIds.map(id => items.find(i => i.id === id)).filter(Boolean) as ContentItem[];
+    const safeItems = Array.isArray(items) ? items : [];
+    const safeRecentIds = Array.isArray(recentIds) ? recentIds : [];
+    
+    if (activeTab === 'favorites') return safeItems.filter(i => i && i.isFavorite);
+    if (activeTab === 'recent') return safeRecentIds.map(id => safeItems.find(i => i && i.id === id)).filter(Boolean) as ContentItem[];
     if (activeTab === 'home') {
       if (!currentCategory) return []; // Don't show links on home screen, only categories
-      return items.filter(i => i.categoryId === currentCategory);
+      return safeItems.filter(i => i && i.categoryId === currentCategory);
     }
-    return items;
+    return safeItems;
   }, [activeTab, items, recentIds, currentCategory]);
 
   const activeCategories = useMemo(() => {
-    const filtered = categories.filter(c => c.parentId === currentCategory);
+    const safeCategories = Array.isArray(categories) ? categories : [];
+    const filtered = safeCategories.filter(c => c && c.parentId === currentCategory);
     // Sort based on DEFAULT_CATEGORIES order if they are default categories
     return [...filtered].sort((a, b) => {
       const indexA = DEFAULT_CATEGORIES.findIndex(dc => dc.id === a.id);
@@ -539,7 +620,6 @@ export default function App() {
   }, [categories, currentCategory]);
 
   if (isLoading) {
-    console.log('App is in loading state...');
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-50" style={{ background: currentTheme.background }}>
         <div className="flex flex-col items-center gap-4">
@@ -550,17 +630,11 @@ export default function App() {
     );
   }
 
-  if (viewingItem) {
-    // This state is now bypassed by handleItemClick, but we keep the logic 
-    // for safety or if we want to revert easily. 
-    // However, the user wants all links to open in a new window.
-    window.open(viewingItem.url, '_blank');
-    setViewingItem(null);
-    return null;
-  }
-
   return (
     <div className="min-h-screen flex flex-col pb-32 transition-all duration-500" style={{ background: currentTheme.background }}>
+      {/* Toaster for notifications */}
+      <Toaster position="top-center" richColors />
+
       {/* Quota Exceeded Banner */}
       <AnimatePresence>
         {isQuotaExceeded && (
@@ -579,39 +653,6 @@ export default function App() {
             >
               إغلاق
             </button>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* Auto Redirect Banner */}
-      <AnimatePresence>
-        {showDefaultBanner && defaultProgramId && items.find(i => i.id === defaultProgramId)?.openInNewTab && (
-          <motion.div 
-            initial={{ opacity: 0, y: -50 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -50 }}
-            className="fixed top-0 left-0 w-full z-50 bg-emerald-600 text-white p-4 shadow-xl flex items-center justify-between"
-          >
-            <div className="flex items-center gap-3">
-              <span className="font-bold">البرنامج الافتراضي: {items.find(i => i.id === defaultProgramId)?.title}</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <button 
-                onClick={() => {
-                  handleItemClick(items.find(i => i.id === defaultProgramId)!);
-                  setShowDefaultBanner(false);
-                }}
-                className="px-4 py-1.5 bg-white text-emerald-600 rounded-lg font-bold transition-colors"
-              >
-                فتح الآن
-              </button>
-              <button 
-                onClick={() => setShowDefaultBanner(false)}
-                className="px-4 py-1.5 bg-white/20 hover:bg-white/30 rounded-lg font-bold transition-colors"
-              >
-                إخفاء
-              </button>
-            </div>
           </motion.div>
         )}
       </AnimatePresence>
@@ -952,9 +993,14 @@ export default function App() {
                     </div>
                     <button 
                       onClick={() => {
-                        localStorage.removeItem('defaultProgramId');
-                        setDefaultProgramId(null);
-                        alert('تم إزالة البرنامج الافتراضي بنجاح.');
+                        try {
+                          localStorage.removeItem('defaultProgramId');
+                          setDefaultProgramId(null);
+                          toast.success('تم إزالة البرنامج الافتراضي بنجاح.');
+                        } catch (err) {
+                          console.error('Error removing default program:', err);
+                          toast.error('حدث خطأ أثناء إزالة البرنامج الافتراضي');
+                        }
                       }}
                       className="w-full py-3 bg-red-50 text-red-600 rounded-xl text-sm font-bold shadow-sm border border-red-100 hover:bg-red-100 transition-colors"
                     >
@@ -1128,8 +1174,12 @@ export default function App() {
                         const title = (document.getElementById('new-item-title') as HTMLInputElement).value;
                         let url = (document.getElementById('new-item-url') as HTMLInputElement).value;
                         
+                        if (newItemType === 'link' && url && !/^[a-zA-Z][a-zA-Z\d+\-.]*:/.test(url)) {
+                          url = 'https://' + url;
+                        }
+
                         if (!title || (!url && newItemType === 'link') || (!selectedPdfFile && newItemType === 'pdf')) {
-                          alert('يرجى إدخال العنوان والرابط أو اختيار ملف');
+                          toast.error('يرجى إدخال العنوان والرابط أو اختيار ملف');
                           return;
                         }
 
@@ -1142,7 +1192,7 @@ export default function App() {
                             url = `storage://${itemId}`;
                           } catch (err) {
                             console.error('Error saving file:', err);
-                            alert('حدث خطأ أثناء حفظ الملف');
+                            toast.error('حدث خطأ أثناء حفظ الملف');
                             return;
                           }
                         }
@@ -1312,8 +1362,13 @@ export default function App() {
                     <p className="text-slate-700 text-sm leading-relaxed whitespace-pre-wrap">{note.content}</p>
                     <button 
                       onClick={() => {
-                        navigator.clipboard.writeText(note.content);
-                        alert('تم نسخ النص');
+                        try {
+                          navigator.clipboard.writeText(note.content);
+                          toast.success('تم نسخ النص');
+                        } catch (err) {
+                          console.error('Error copying text:', err);
+                          toast.error('فشل نسخ النص');
+                        }
                       }}
                       className="text-xs font-bold text-amber-600 flex items-center gap-1"
                     >
@@ -1468,11 +1523,80 @@ export default function App() {
         )}
       </AnimatePresence>
 
+      {/* Footer */}
+      <footer className="bg-white/40 backdrop-blur-md border-t border-white/20 py-8 px-6 mb-24 text-center">
+        <p className="text-slate-600 text-xs leading-relaxed mb-4">
+          {FOOTER_INFO}
+        </p>
+        <div className="flex justify-center gap-4">
+          <button 
+            onClick={() => window.open(WHATSAPP_LINK, '_blank', 'noopener,noreferrer')}
+            className="flex items-center gap-2 px-4 py-2 bg-emerald-50 text-emerald-600 rounded-xl text-xs font-bold border border-emerald-100"
+          >
+            <MessageCircle className="w-4 h-4" />
+            تواصل عبر واتساب
+          </button>
+          <button 
+            onClick={() => window.location.href = `tel:${CONTACT_PHONE}`}
+            className="flex items-center gap-2 px-4 py-2 bg-blue-50 text-blue-600 rounded-xl text-xs font-bold border border-blue-100"
+          >
+            <Phone className="w-4 h-4" />
+            اتصال هاتفي
+          </button>
+        </div>
+      </footer>
+
       {activeTab !== 'settings' && (
         <div className="fixed bottom-[48px] left-0 w-full z-[60]">
           <Carousel items={allCarouselItems} speed={settings.carouselSpeed} />
         </div>
       )}
+
+      {/* Default Program Modal */}
+      <AnimatePresence>
+        {showDefaultProgramModal && defaultProgramItem && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[100] bg-slate-900/80 backdrop-blur-sm flex items-center justify-center p-6"
+            dir="rtl"
+          >
+            <motion.div
+              initial={{ scale: 0.9, y: 20 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.9, y: 20 }}
+              className="bg-white rounded-3xl p-8 max-w-sm w-full shadow-2xl text-center"
+            >
+              <div className="w-20 h-20 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto mb-6 shadow-inner">
+                <Home className="w-10 h-10" />
+              </div>
+              <h2 className="text-2xl font-bold text-slate-800 mb-2 font-display">البرنامج الافتراضي</h2>
+              <p className="text-slate-600 mb-8 leading-relaxed">
+                هل ترغب في فتح برنامجك الافتراضي "<span className="font-bold text-emerald-600">{defaultProgramItem.title}</span>" الآن؟
+              </p>
+              
+              <div className="flex flex-col gap-3">
+                <button
+                  onClick={() => {
+                    setShowDefaultProgramModal(false);
+                    handleItemClick(defaultProgramItem);
+                  }}
+                  className="w-full py-4 bg-emerald-600 text-white rounded-2xl font-bold shadow-lg hover:bg-emerald-700 transition-all text-lg"
+                >
+                  فتح البرنامج
+                </button>
+                <button
+                  onClick={() => setShowDefaultProgramModal(false)}
+                  className="w-full py-4 bg-slate-100 text-slate-600 rounded-2xl font-bold hover:bg-slate-200 transition-all"
+                >
+                  البقاء في التطبيق
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
