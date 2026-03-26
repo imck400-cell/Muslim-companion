@@ -30,13 +30,15 @@ import {
   CheckSquare,
   Calendar,
   Save,
-  Share2
+  Share2,
+  User
 } from 'lucide-react';
 import { LOGIN_PHRASE, WELCOME_MESSAGE, FOOTER_INFO, CONTACT_PHONE, WHATSAPP_LINK, DEFAULT_CATEGORIES, DEFAULT_ITEMS, THEMES, VIBRANT_COLORS } from './constants';
 import { Category, ContentItem, AppSettings, CarouselItem, Theme, Note, Task, TaskStatus } from './types';
-import { db, auth, storage, handleFirestoreError, OperationType, testFirestoreConnection } from './firebase';
+import { db, auth, storage, handleFirestoreError, OperationType, testFirestoreConnection, googleProvider } from './firebase';
+import { signInWithPopup, signOut } from 'firebase/auth';
 
-import { collection, doc, setDoc, deleteDoc, onSnapshot, query, getDocs, writeBatch } from 'firebase/firestore';
+import { collection, doc, setDoc, deleteDoc, onSnapshot, query, getDocs, writeBatch, updateDoc, where, orderBy } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
 
 // --- Components ---
@@ -857,6 +859,44 @@ export default function App() {
             </div>
 
             <div className="space-y-8">
+              {/* Auth Section */}
+              <section className="bg-slate-50 p-6 rounded-3xl border border-slate-200">
+                <h3 className="text-lg font-bold mb-4 flex items-center gap-2">
+                  <User className="w-5 h-5 text-slate-600" />
+                  الحساب والمزامنة
+                </h3>
+                {auth.currentUser ? (
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      {auth.currentUser.photoURL && (
+                        <img src={auth.currentUser.photoURL} alt="" className="w-10 h-10 rounded-full" referrerPolicy="no-referrer" />
+                      )}
+                      <div>
+                        <p className="text-sm font-bold text-slate-800">{auth.currentUser.displayName}</p>
+                        <p className="text-xs text-slate-500">{auth.currentUser.email}</p>
+                      </div>
+                    </div>
+                    <button 
+                      onClick={() => signOut(auth)}
+                      className="px-4 py-2 bg-red-50 text-red-600 rounded-xl text-sm font-bold"
+                    >
+                      تسجيل الخروج
+                    </button>
+                  </div>
+                ) : (
+                  <div>
+                    <p className="text-sm text-slate-600 mb-4">قم بتسجيل الدخول لمزامنة بياناتك والوصول إلى ميزات الإدارة.</p>
+                    <button 
+                      onClick={() => signInWithPopup(auth, googleProvider)}
+                      className="w-full py-4 bg-white border-2 border-slate-100 rounded-2xl font-bold flex items-center justify-center gap-3 hover:bg-slate-50 transition-colors"
+                    >
+                      <img src="https://www.gstatic.com/firebase/explore/images/google-logo.svg" alt="" className="w-5 h-5" />
+                      تسجيل الدخول باستخدام Google
+                    </button>
+                  </div>
+                )}
+              </section>
+
               {/* Theme Selection */}
               <section className="bg-white/40 backdrop-blur-md p-4 rounded-3xl border border-white/20 shadow-sm">
                 <button 

@@ -1,0 +1,108 @@
+{
+  "entities": {
+    "Category": {
+      "title": "Category",
+      "description": "A category for content items",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "parentId": { "type": "string" },
+        "color": { "type": "string" },
+        "uid": { "type": "string" }
+      },
+      "required": ["id", "name", "color"]
+    },
+    "ContentItem": {
+      "title": "ContentItem",
+      "description": "A link or PDF item",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "type": { "type": "string", "enum": ["link", "pdf"] },
+        "url": { "type": "string" },
+        "color": { "type": "string" },
+        "categoryId": { "type": "string" },
+        "createdAt": { "type": "number" },
+        "isFavorite": { "type": "boolean" },
+        "uid": { "type": "string" },
+        "openInNewTab": { "type": "boolean" }
+      },
+      "required": ["id", "title", "type", "url", "color", "categoryId", "createdAt", "isFavorite"]
+    },
+    "Note": {
+      "title": "Note",
+      "description": "A simple text note",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "content": { "type": "string" },
+        "createdAt": { "type": "number" },
+        "uid": { "type": "string" }
+      },
+      "required": ["id", "content", "createdAt"]
+    },
+    "Task": {
+      "title": "Task",
+      "description": "A task with status and date",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "date": { "type": "string" },
+        "status": { "type": "string", "enum": ["none", "in-progress", "completed", "not-completed"] },
+        "showInCarousel": { "type": "boolean" },
+        "createdAt": { "type": "number" },
+        "uid": { "type": "string" }
+      },
+      "required": ["id", "title", "date", "status", "showInCarousel", "createdAt"]
+    },
+    "AppSettings": {
+      "title": "AppSettings",
+      "description": "Global application settings",
+      "type": "object",
+      "properties": {
+        "language": { "type": "string", "enum": ["ar", "en"] },
+        "themeId": { "type": "string" },
+        "carouselItems": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": { "type": "string" },
+              "text": { "type": "string" },
+              "imageUrl": { "type": "string" }
+            },
+            "required": ["id", "text"]
+          }
+        },
+        "carouselSpeed": { "type": "number" },
+        "uid": { "type": "string" }
+      },
+      "required": ["language", "themeId", "carouselItems", "carouselSpeed"]
+    }
+  },
+  "firestore": {
+    "categories": {
+      "schema": "Category",
+      "description": "Collection of categories"
+    },
+    "items": {
+      "schema": "ContentItem",
+      "description": "Collection of content items"
+    },
+    "notes": {
+      "schema": "Note",
+      "description": "Collection of notes"
+    },
+    "tasks": {
+      "schema": "Task",
+      "description": "Collection of tasks"
+    },
+    "settings": {
+      "schema": "AppSettings",
+      "description": "Collection for global settings"
+    }
+  }
+}

@@ -1,0 +1,170 @@
+// ===============================================================
+// Assumed Data Model
+// ===============================================================
+//
+// Collection: categories
+// Fields:
+//   - id: string (required)
+//   - name: string (required)
+//   - parentId: string | null (required)
+//   - color: string (required)
+//   - uid: string (optional)
+//
+// Collection: items
+// Fields:
+//   - id: string (required)
+//   - title: string (required)
+//   - type: string (required, enum: ['link', 'pdf'])
+//   - url: string (required)
+//   - color: string (required)
+//   - categoryId: string (required)
+//   - createdAt: number (required)
+//   - isFavorite: boolean (required)
+//   - uid: string (optional)
+//   - openInNewTab: boolean (optional)
+//
+// Collection: notes
+// Fields:
+//   - id: string (required)
+//   - content: string (required)
+//   - createdAt: number (required)
+//   - uid: string (optional)
+//
+// Collection: tasks
+// Fields:
+//   - id: string (required)
+//   - title: string (required)
+//   - date: string (required)
+//   - status: string (required, enum: ['none', 'in-progress', 'completed', 'not-completed'])
+//   - showInCarousel: boolean (required)
+//   - createdAt: number (required)
+//   - uid: string (optional)
+//
+// Collection: settings
+// Fields:
+//   - language: string (required, enum: ['ar', 'en'])
+//   - themeId: string (required)
+//   - carouselItems: list (required)
+//   - carouselSpeed: number (required)
+//   - uid: string (optional)
+//
+// ===============================================================
+
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() &&
+        (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' ||
+          (request.auth.token.email == "imck400@gmail.com" && request.auth.token.email_verified == true));
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function hasRequiredFields(fields) {
+      return request.resource.data.keys().hasAll(fields);
+    }
+
+    function hasOnlyAllowedFields(fields) {
+      return request.resource.data.keys().hasOnly(fields);
+    }
+
+    // ===============================================================
+    // Domain Validators
+    // ===============================================================
+
+    function isValidCategory(data) {
+      return hasRequiredFields(['id', 'name', 'color']) &&
+             data.id is string && data.id.size() > 0 && data.id.size() < 100 &&
+             data.name is string && data.name.size() > 0 && data.name.size() < 100 &&
+             data.color is string && data.color.size() > 0 && data.color.size() < 50;
+    }
+
+    function isValidItem(data) {
+      return hasRequiredFields(['id', 'title', 'type', 'url', 'color', 'categoryId', 'createdAt', 'isFavorite']) &&
+             data.id is string && data.id.size() > 0 && data.id.size() < 100 &&
+             data.title is string && data.title.size() > 0 && data.title.size() < 200 &&
+             data.type in ['link', 'pdf'] &&
+             data.url is string && data.url.size() > 0 && data.url.size() < 2000 &&
+             data.color is string && data.color.size() > 0 && data.color.size() < 50 &&
+             data.categoryId is string && data.categoryId.size() > 0 && data.categoryId.size() < 100 &&
+             data.createdAt is number &&
+             data.isFavorite is bool;
+    }
+
+    function isValidNote(data) {
+      return hasRequiredFields(['id', 'content', 'createdAt']) &&
+             data.id is string && data.id.size() > 0 && data.id.size() < 100 &&
+             data.content is string && data.content.size() > 0 && data.content.size() < 5000 &&
+             data.createdAt is number;
+    }
+
+    function isValidTask(data) {
+      return hasRequiredFields(['id', 'title', 'date', 'status', 'showInCarousel', 'createdAt']) &&
+             data.id is string && data.id.size() > 0 && data.id.size() < 100 &&
+             data.title is string && data.title.size() > 0 && data.title.size() < 200 &&
+             data.date is string && data.date.size() > 0 && data.date.size() < 50 &&
+             data.status in ['none', 'in-progress', 'completed', 'not-completed'] &&
+             data.showInCarousel is bool &&
+             data.createdAt is number;
+    }
+
+    function isValidSettings(data) {
+      return hasRequiredFields(['language', 'themeId', 'carouselItems', 'carouselSpeed']) &&
+             data.language in ['ar', 'en'] &&
+             data.themeId is string && data.themeId.size() > 0 && data.themeId.size() < 100 &&
+             data.carouselItems is list &&
+             data.carouselSpeed is number;
+    }
+
+    // ===============================================================
+    // Rules
+    // ===============================================================
+
+    match /users/{userId} {
+      allow read: if isOwner(userId) || isAdmin();
+      allow create, update: if isAdmin();
+    }
+
+    match /categories/{catId} {
+      allow read: if isAuthenticated();
+      allow create, update, delete: if isAdmin();
+    }
+
+    match /items/{itemId} {
+      allow read: if isAuthenticated();
+      allow create, update, delete: if isAdmin();
+    }
+
+    match /notes/{noteId} {
+      allow read: if isAuthenticated();
+      allow create, update, delete: if isAdmin();
+    }
+
+    match /tasks/{taskId} {
+      allow read: if isAuthenticated();
+      allow create, update, delete: if isAdmin();
+    }
+
+    match /settings/{docId} {
+      allow read: if isAuthenticated();
+      allow create, update, delete: if isAdmin();
+    }
+
+    // Default deny
+    match /{path=**} {
+      allow read, write: if false;
+    }
+  }
+}
