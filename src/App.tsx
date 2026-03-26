@@ -272,9 +272,11 @@ export default function App() {
   const [isThemesCollapsed, setIsThemesCollapsed] = useState(true);
   const [targetCategoryId, setTargetCategoryId] = useState<string>('cat-default');
   const [activeModule, setActiveModule] = useState<'none' | 'notebook' | 'tasks'>('none');
-
   const [notes, setNotes] = useState<Note[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
+  const [showDefaultProgramModal, setShowDefaultProgramModal] = useState(false);
+  const [defaultProgramItem, setDefaultProgramItem] = useState<ContentItem | null>(null);
+  const hasOpenedDefault = useRef(false);
 
   const [defaultProgramId, setDefaultProgramId] = useState<string | null>(() => {
     try {
@@ -283,6 +285,17 @@ export default function App() {
       return null;
     }
   });
+
+  useEffect(() => {
+    if (!isLoading && defaultProgramId && !hasOpenedDefault.current) {
+      const item = items.find(i => i.id === defaultProgramId);
+      if (item) {
+        hasOpenedDefault.current = true;
+        setDefaultProgramItem(item);
+        setShowDefaultProgramModal(true);
+      }
+    }
+  }, [isLoading, defaultProgramId, items]);
 
   useEffect(() => {
     testFirestoreConnection();
@@ -325,6 +338,14 @@ export default function App() {
         setIsLoading(false);
       }
     };
+
+    if (!db || typeof db.collection !== 'function' && !db.type) {
+      console.warn("Firestore is not initialized. Using fallback data.");
+      setCategories(prev => prev.length === 0 ? DEFAULT_CATEGORIES : prev);
+      setItems(prev => prev.length === 0 ? DEFAULT_ITEMS : prev);
+      setIsLoading(false);
+      return;
+    }
 
     const unsubCategories = onSnapshot(collection(db, 'categories'), (snapshot) => {
       const cats: Category[] = [];
@@ -478,18 +499,27 @@ export default function App() {
 
   const handleItemClick = async (item: ContentItem) => {
     if (!item) return;
+    
+    let finalUrl = item.url || '';
+    if (!finalUrl) {
+      toast.error('الرابط غير متاح لهذا العنصر');
+      return;
+    }
+
+    // Open window synchronously to bypass popup blockers on mobile browsers
+    let win: Window | null = null;
+    try {
+      win = window.open('', '_blank', 'noopener,noreferrer');
+    } catch (e) {
+      console.error("Could not open window synchronously:", e);
+    }
+
     try {
       setRecentIds(prev => {
         if (!Array.isArray(prev)) return [item.id];
         return [item.id, ...prev.filter(id => id !== item.id)].slice(0, 10);
       });
       
-      let finalUrl = item.url || '';
-      if (!finalUrl) {
-        toast.error('الرابط غير متاح لهذا العنصر');
-        return;
-      }
-
       if (finalUrl.startsWith('storage://')) {
         const fileId = finalUrl.replace('storage://', '');
         try {
@@ -497,22 +527,32 @@ export default function App() {
           finalUrl = await getDownloadURL(fileRef);
         } catch (err) {
           console.error('Error loading file from Storage:', err);
+          if (win) win.close();
           toast.error('الملف غير موجود أو تم حذفه من السحابة');
           return;
         }
-      } else if (!finalUrl.startsWith('http://') && !finalUrl.startsWith('https://') && !finalUrl.startsWith('mailto:') && !finalUrl.startsWith('tel:')) {
+      } else if (!/^[a-zA-Z][a-zA-Z\d+\-.]*:/.test(finalUrl)) {
         finalUrl = 'https://' + finalUrl;
       }
       
-      if (!finalUrl) return;
+      if (!finalUrl) {
+        if (win) win.close();
+        return;
+      }
 
-      // Always open in a new tab as requested
-      const win = window.open(finalUrl, '_blank', 'noopener,noreferrer');
-      if (!win) {
-        toast.error('تم حظر فتح النافذة الجديدة. يرجى السماح بالنوافذ المنبثقة.');
+      if (win) {
+        win.location.href = finalUrl;
+      } else {
+        // Fallback if synchronous open failed
+        const fallbackWin = window.open(finalUrl, '_blank', 'noopener,noreferrer');
+        if (!fallbackWin) {
+          // If popup is blocked, navigate the current window as a last resort
+          window.location.href = finalUrl;
+        }
       }
     } catch (error) {
       console.error('Error in handleItemClick:', error);
+      if (win) win.close();
       toast.error('حدث خطأ غير متوقع عند محاولة فتح الرابط');
     }
   };
@@ -1113,7 +1153,7 @@ export default function App() {
                         const title = (document.getElementById('new-item-title') as HTMLInputElement).value;
                         let url = (document.getElementById('new-item-url') as HTMLInputElement).value;
                         
-                        if (newItemType === 'link' && url && !url.startsWith('http://') && !url.startsWith('https://') && !url.startsWith('mailto:') && !url.startsWith('tel:')) {
+                        if (newItemType === 'link' && url && !/^[a-zA-Z][a-zA-Z\d+\-.]*:/.test(url)) {
                           url = 'https://' + url;
                         }
 
@@ -1467,6 +1507,52 @@ export default function App() {
           <Carousel items={allCarouselItems} speed={settings.carouselSpeed} />
         </div>
       )}
+
+      {/* Default Program Modal */}
+      <AnimatePresence>
+        {showDefaultProgramModal && defaultProgramItem && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[100] bg-slate-900/80 backdrop-blur-sm flex items-center justify-center p-6"
+            dir="rtl"
+          >
+            <motion.div
+              initial={{ scale: 0.9, y: 20 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.9, y: 20 }}
+              className="bg-white rounded-3xl p-8 max-w-sm w-full shadow-2xl text-center"
+            >
+              <div className="w-20 h-20 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto mb-6 shadow-inner">
+                <Home className="w-10 h-10" />
+              </div>
+              <h2 className="text-2xl font-bold text-slate-800 mb-2 font-display">البرنامج الافتراضي</h2>
+              <p className="text-slate-600 mb-8 leading-relaxed">
+                هل ترغب في فتح برنامجك الافتراضي "<span className="font-bold text-emerald-600">{defaultProgramItem.title}</span>" الآن؟
+              </p>
+              
+              <div className="flex flex-col gap-3">
+                <button
+                  onClick={() => {
+                    setShowDefaultProgramModal(false);
+                    handleItemClick(defaultProgramItem);
+                  }}
+                  className="w-full py-4 bg-emerald-600 text-white rounded-2xl font-bold shadow-lg hover:bg-emerald-700 transition-all text-lg"
+                >
+                  فتح البرنامج
+                </button>
+                <button
+                  onClick={() => setShowDefaultProgramModal(false)}
+                  className="w-full py-4 bg-slate-100 text-slate-600 rounded-2xl font-bold hover:bg-slate-200 transition-all"
+                >
+                  البقاء في التطبيق
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
