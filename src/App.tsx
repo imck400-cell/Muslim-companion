@@ -499,12 +499,14 @@ export default function App() {
           toast.error('الملف غير موجود أو تم حذفه من السحابة');
           return;
         }
+      } else if (!finalUrl.startsWith('http://') && !finalUrl.startsWith('https://') && !finalUrl.startsWith('mailto:') && !finalUrl.startsWith('tel:')) {
+        finalUrl = 'https://' + finalUrl;
       }
       
       if (!finalUrl) return;
 
       // Always open in a new tab as requested
-      const win = window.open(finalUrl, '_blank');
+      const win = window.open(finalUrl, '_blank', 'noopener,noreferrer');
       if (!win) {
         toast.error('تم حظر فتح النافذة الجديدة. يرجى السماح بالنوافذ المنبثقة.');
       }
@@ -1110,6 +1112,10 @@ export default function App() {
                         const title = (document.getElementById('new-item-title') as HTMLInputElement).value;
                         let url = (document.getElementById('new-item-url') as HTMLInputElement).value;
                         
+                        if (newItemType === 'link' && url && !url.startsWith('http://') && !url.startsWith('https://') && !url.startsWith('mailto:') && !url.startsWith('tel:')) {
+                          url = 'https://' + url;
+                        }
+
                         if (!title || (!url && newItemType === 'link') || (!selectedPdfFile && newItemType === 'pdf')) {
                           toast.error('يرجى إدخال العنوان والرابط أو اختيار ملف');
                           return;
