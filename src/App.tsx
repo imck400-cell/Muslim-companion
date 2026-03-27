@@ -384,7 +384,7 @@ export default function App() {
       }
     }, (error) => handleError(error, 'categories'));
 
-    const unsubItems = onSnapshot(collection(db, 'items'), (snapshot) => {
+    const unsubItems = onSnapshot(query(collection(db, 'items'), orderBy('createdAt', 'asc')), (snapshot) => {
       const itms: ContentItem[] = [];
       const itemsToDelete: string[] = [];
       
@@ -442,15 +442,17 @@ export default function App() {
       }
     }, (error) => handleError(error, 'items'));
 
-    const unsubNotes = onSnapshot(collection(db, 'notes'), (snapshot) => {
+    const unsubNotes = onSnapshot(query(collection(db, 'notes'), orderBy('createdAt', 'asc')), (snapshot) => {
       const nts: Note[] = [];
       snapshot.forEach(doc => nts.push(doc.data() as Note));
+      console.log('Notes loaded:', nts);
       setNotes(nts);
     }, (error) => handleError(error, 'notes'));
 
-    const unsubTasks = onSnapshot(collection(db, 'tasks'), (snapshot) => {
+    const unsubTasks = onSnapshot(query(collection(db, 'tasks'), orderBy('createdAt', 'asc')), (snapshot) => {
       const tsks: Task[] = [];
       snapshot.forEach(doc => tsks.push(doc.data() as Task));
+      console.log('Tasks loaded:', tsks);
       setTasks(tsks);
     }, (error) => handleError(error, 'tasks'));
 
@@ -1327,9 +1329,12 @@ export default function App() {
                       uid: 'default'
                     };
                     try {
+                      console.log('Saving note:', newNote);
                       await setDoc(doc(db, 'notes', noteId), newNote);
                       (document.getElementById('note-content') as HTMLTextAreaElement).value = '';
+                      toast.success('تم حفظ الملاحظة');
                     } catch (error) {
+                      console.error('Error saving note:', error);
                       handleFirestoreError(error, OperationType.WRITE, `notes/${noteId}`);
                     }
                   }}
@@ -1433,10 +1438,13 @@ export default function App() {
                       uid: 'default'
                     };
                     try {
+                      console.log('Saving task:', newTask);
                       await setDoc(doc(db, 'tasks', taskId), newTask);
                       (document.getElementById('task-title') as HTMLInputElement).value = '';
                       (document.getElementById('task-date') as HTMLInputElement).value = '';
+                      toast.success('تم حفظ المهمة');
                     } catch (error) {
+                      console.error('Error saving task:', error);
                       handleFirestoreError(error, OperationType.WRITE, `tasks/${taskId}`);
                     }
                   }}
