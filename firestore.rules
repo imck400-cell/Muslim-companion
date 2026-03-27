@@ -139,22 +139,30 @@ service cloud.firestore {
 
     match /categories/{catId} {
       allow read: if isAuthenticated();
-      allow create, update, delete: if isAdmin();
+      allow create: if isAuthenticated() && isValidCategory(request.resource.data);
+      allow update: if isAuthenticated() && isValidCategory(request.resource.data) && areImmutableFieldsUnchanged(['id', 'parentId']);
+      allow delete: if isAdmin();
     }
 
     match /items/{itemId} {
       allow read: if isAuthenticated();
-      allow create, update, delete: if isAdmin();
+      allow create: if isAuthenticated() && isValidItem(request.resource.data);
+      allow update: if isAuthenticated() && isValidItem(request.resource.data) && areImmutableFieldsUnchanged(['id', 'createdAt']);
+      allow delete: if isAdmin();
     }
 
     match /notes/{noteId} {
       allow read: if isAuthenticated();
-      allow create, update, delete: if isAdmin();
+      allow create: if isAuthenticated() && isValidNote(request.resource.data);
+      allow update: if isAuthenticated() && isValidNote(request.resource.data) && areImmutableFieldsUnchanged(['id', 'createdAt']);
+      allow delete: if isAdmin();
     }
 
     match /tasks/{taskId} {
       allow read: if isAuthenticated();
-      allow create, update, delete: if isAdmin();
+      allow create: if isAuthenticated() && isValidTask(request.resource.data);
+      allow update: if isAuthenticated() && isValidTask(request.resource.data) && areImmutableFieldsUnchanged(['id', 'createdAt']);
+      allow delete: if isAdmin();
     }
 
     match /settings/{docId} {
