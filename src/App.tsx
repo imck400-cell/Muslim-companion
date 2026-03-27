@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect, useMemo, useRef, Component, ReactNode, ErrorInfo } from 'react';
+import React, { useState, useEffect, useMemo, useRef, ReactNode, ErrorInfo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   Home, 
@@ -16,31 +16,26 @@ import {
   Phone, 
   MessageCircle, 
   ChevronLeft, 
-  ChevronDown,
-  ChevronUp,
+  ChevronDown, 
+  ChevronUp, 
   ExternalLink, 
-  FileText,
-  Trash2,
-  Edit2,
-  Menu,
-  X,
-  Languages,
-  ArrowRight,
-  Book,
-  CheckSquare,
-  Calendar,
-  Save,
-  Share2,
+  FileText, 
+  Trash2, 
+  Edit2, 
+  Menu, 
+  X, 
+  Languages, 
+  ArrowRight, 
+  Book, 
+  CheckSquare, 
+  Calendar, 
+  Save, 
+  Share2, 
   User
 } from 'lucide-react';
 import { Toaster, toast } from 'sonner';
 import { LOGIN_PHRASE, WELCOME_MESSAGE, FOOTER_INFO, CONTACT_PHONE, WHATSAPP_LINK, DEFAULT_CATEGORIES, DEFAULT_ITEMS, THEMES, VIBRANT_COLORS } from './constants';
 import { Category, ContentItem, AppSettings, CarouselItem, Theme, Note, Task, TaskStatus } from './types';
-import { db, auth, storage, handleFirestoreError, OperationType, testFirestoreConnection, googleProvider } from './firebase';
-import { signInWithPopup, signOut, onAuthStateChanged } from 'firebase/auth';
-
-import { collection, doc, setDoc, deleteDoc, onSnapshot, query, getDocs, writeBatch, updateDoc, where, orderBy } from 'firebase/firestore';
-import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
 
 // --- Components ---
 
@@ -239,45 +234,68 @@ export default function App() {
   const [showQuickAdd, setShowQuickAdd] = useState(false);
   const [selectedPdfFile, setSelectedPdfFile] = useState<File | null>(null);
   const [newItemType, setNewItemType] = useState<'link' | 'pdf'>('link');
-  const [categories, setCategories] = useState<Category[]>(DEFAULT_CATEGORIES);
-  const [items, setItems] = useState<ContentItem[]>(DEFAULT_ITEMS);
-  const [recentIds, setRecentIds] = useState<string[]>([]);
+  const [categories, setCategories] = useState<Category[]>(() => {
+    const saved = localStorage.getItem('app_categories');
+    return saved ? JSON.parse(saved) : DEFAULT_CATEGORIES;
+  });
+  const [items, setItems] = useState<ContentItem[]>(() => {
+    const saved = localStorage.getItem('app_items');
+    return saved ? JSON.parse(saved) : DEFAULT_ITEMS;
+  });
+  const [recentIds, setRecentIds] = useState<string[]>(() => {
+    const saved = localStorage.getItem('app_recent_ids');
+    return saved ? JSON.parse(saved) : [];
+  });
   const [isLoading, setIsLoading] = useState(false);
-  const [settings, setSettings] = useState<AppSettings>({
-    language: 'ar',
-    themeId: 'modern-emerald',
-    carouselItems: [
-      { id: '1', text: 'اللهم صل وسلم على نبينا محمد' },
-      { id: '2', text: 'سبحان الله وبحمده سبحان الله العظيم' },
-      { id: '3', text: 'أستغفر الله العظيم وأتوب إليه' },
-      { id: '4', text: 'لا إله إلا الله وحده لا شريك له' },
-      { id: '5', text: 'الحمد لله حمداً كثيراً طيباً مباركاً فيه' },
-      { id: '6', text: 'لا حول ولا قوة إلا بالله العلي العظيم' },
-      { id: '7', text: 'حسبي الله لا إله إلا هو عليه توكلت وهو رب العرش العظيم' },
-      { id: '8', text: 'اللهم بك أصبحنا وبك أمسينا وبك نحيا وبك نموت وإليك النشور' },
-      { id: '9', text: 'رضيت بالله رباً وبالإسلام ديناً وبمحمد صلى الله عليه وسلم نبياً' },
-      { id: '10', text: 'يا حي يا قيوم برحمتك أستغيث أصلح لي شأني كله ولا تكلني إلى نفسي طرفة عين' },
-      { id: '11', text: 'اللهم إني أسألك العفو والعافية في الدنيا والآخرة' },
-      { id: '12', text: 'سبحان الله والحمد لله ولا إله إلا الله والله أكبر' }
-    ],
-    carouselSpeed: 30,
-    uid: 'default'
+  const [settings, setSettings] = useState<AppSettings>(() => {
+    const saved = localStorage.getItem('app_settings');
+    return saved ? JSON.parse(saved) : {
+      language: 'ar',
+      themeId: 'modern-emerald',
+      carouselItems: [
+        { id: '1', text: 'اللهم صل وسلم على نبينا محمد' },
+        { id: '2', text: 'سبحان الله وبحمده سبحان الله العظيم' },
+        { id: '3', text: 'أستغفر الله العظيم وأتوب إليه' },
+        { id: '4', text: 'لا إله إلا الله وحده لا شريك له' },
+        { id: '5', text: 'الحمد لله حمداً كثيراً طيباً مباركاً فيه' },
+        { id: '6', text: 'لا حول ولا قوة إلا بالله العلي العظيم' },
+        { id: '7', text: 'حسبي الله لا إله إلا هو عليه توكلت وهو رب العرش العظيم' },
+        { id: '8', text: 'اللهم بك أصبحنا وبك أمسينا وبك نحيا وبك نموت وإليك النشور' },
+        { id: '9', text: 'رضيت بالله رباً وبالإسلام ديناً وبمحمد صلى الله عليه وسلم نبياً' },
+        { id: '10', text: 'يا حي يا قيوم برحمتك أستغيث أصلح لي شأني كله ولا تكلني إلى نفسي طرفة عين' },
+        { id: '11', text: 'اللهم إني أسألك العفو والعافية في الدنيا والآخرة' },
+        { id: '12', text: 'سبحان الله والحمد لله ولا إله إلا الله والله أكبر' }
+      ],
+      carouselSpeed: 30,
+      uid: 'local'
+    };
   });
 
   const currentTheme = useMemo(() => THEMES.find(t => t.id === settings.themeId) || THEMES[0], [settings.themeId]);
 
-  const [userId, setUserId] = useState<string | null>(null);
-  const [isAuthReady, setIsAuthReady] = useState(false);
-  const [isQuotaExceeded, setIsQuotaExceeded] = useState(false);
   const [currentCategory, setCurrentCategory] = useState<string | null>(null);
   const [isThemesCollapsed, setIsThemesCollapsed] = useState(true);
   const [targetCategoryId, setTargetCategoryId] = useState<string>('cat-default');
   const [activeModule, setActiveModule] = useState<'none' | 'notebook' | 'tasks'>('none');
-  const [notes, setNotes] = useState<Note[]>([]);
-  const [tasks, setTasks] = useState<Task[]>([]);
+  const [notes, setNotes] = useState<Note[]>(() => {
+    const saved = localStorage.getItem('app_notes');
+    return saved ? JSON.parse(saved) : [];
+  });
+  const [tasks, setTasks] = useState<Task[]>(() => {
+    const saved = localStorage.getItem('app_tasks');
+    return saved ? JSON.parse(saved) : [];
+  });
   const [showDefaultProgramModal, setShowDefaultProgramModal] = useState(false);
   const [defaultProgramItem, setDefaultProgramItem] = useState<ContentItem | null>(null);
   const hasOpenedDefault = useRef(false);
+
+  // Persistence Effects
+  useEffect(() => { localStorage.setItem('app_categories', JSON.stringify(categories)); }, [categories]);
+  useEffect(() => { localStorage.setItem('app_items', JSON.stringify(items)); }, [items]);
+  useEffect(() => { localStorage.setItem('app_recent_ids', JSON.stringify(recentIds)); }, [recentIds]);
+  useEffect(() => { localStorage.setItem('app_settings', JSON.stringify(settings)); }, [settings]);
+  useEffect(() => { localStorage.setItem('app_notes', JSON.stringify(notes)); }, [notes]);
+  useEffect(() => { localStorage.setItem('app_tasks', JSON.stringify(tasks)); }, [tasks]);
 
   const [defaultProgramId, setDefaultProgramId] = useState<string | null>(() => {
     try {
@@ -307,186 +325,6 @@ export default function App() {
     return () => window.removeEventListener('defaultProgramChanged', handleDefaultProgramChanged);
   }, []);
 
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      setUserId(user ? user.uid : null);
-      setIsAuthReady(true);
-    });
-    return unsubscribe;
-  }, []);
-
-  useEffect(() => {
-    if (!isAuthReady) return;
-
-    if (!userId) {
-      console.log("User not authenticated. Using fallback data.");
-      setCategories(DEFAULT_CATEGORIES);
-      setItems(DEFAULT_ITEMS);
-      setIsLoading(false);
-      return;
-    }
-
-    const handleError = (error: any, path: string) => {
-      const errInfo = handleFirestoreError(error, OperationType.GET, path);
-      if (errInfo && errInfo.error.includes('Quota exceeded')) {
-        setIsQuotaExceeded(true);
-        setCategories(prev => prev.length === 0 ? DEFAULT_CATEGORIES : prev);
-        setItems(prev => prev.length === 0 ? DEFAULT_ITEMS : prev);
-        setIsLoading(false);
-      }
-    };
-
-    if (!db || typeof db.collection !== 'function' && !db.type) {
-      console.warn("Firestore is not initialized. Using fallback data.");
-      setCategories(prev => prev.length === 0 ? DEFAULT_CATEGORIES : prev);
-      setItems(prev => prev.length === 0 ? DEFAULT_ITEMS : prev);
-      setIsLoading(false);
-      return;
-    }
-
-    const unsubCategories = onSnapshot(collection(db, 'categories'), (snapshot) => {
-      const cats: Category[] = [];
-      snapshot.forEach(doc => cats.push(doc.data() as Category));
-      if (cats.length === 0) {
-        // Initialize default categories
-        const batch = writeBatch(db);
-        DEFAULT_CATEGORIES.forEach(cat => {
-          batch.set(doc(db, 'categories', cat.id), { ...cat, uid: userId });
-        });
-        batch.commit().catch(error => handleError(error, 'categories-init'));
-      } else {
-        setCategories(cats);
-        // Check for missing default categories and add them
-        const batch = writeBatch(db);
-        let needsUpdate = false;
-
-        const missingCats = DEFAULT_CATEGORIES.filter(dc => !cats.some(c => c.id === dc.id));
-        if (missingCats.length > 0) {
-          missingCats.forEach(cat => {
-            batch.set(doc(db, 'categories', cat.id), { ...cat, uid: userId });
-          });
-          needsUpdate = true;
-        }
-
-        DEFAULT_CATEGORIES.forEach(dc => {
-          const existing = cats.find(c => c.id === dc.id);
-          if (existing && (existing.parentId !== dc.parentId || existing.name !== dc.name || existing.color !== dc.color)) {
-            batch.update(doc(db, 'categories', dc.id), { 
-              parentId: dc.parentId,
-              name: dc.name,
-              color: dc.color
-            });
-            needsUpdate = true;
-          }
-        });
-
-        // Migrate any custom root categories to cat-useful-sites
-        cats.forEach(c => {
-          if (c.parentId === null && c.id !== 'cat-default' && c.id !== 'cat-useful-sites') {
-            batch.update(doc(db, 'categories', c.id), { parentId: 'cat-useful-sites' });
-            needsUpdate = true;
-          }
-        });
-
-        if (needsUpdate) {
-          batch.commit().catch(error => handleError(error, 'categories-update'));
-        }
-      }
-    }, (error) => handleError(error, 'categories'));
-
-    const unsubItems = onSnapshot(query(collection(db, 'items'), orderBy('createdAt', 'asc')), (snapshot) => {
-      const itms: ContentItem[] = [];
-      const itemsToDelete: string[] = [];
-      
-      snapshot.forEach(doc => {
-        const data = doc.data() as ContentItem;
-        // Explicitly filter out 'المفرغ الصوتي' or any item containing it
-        if (data.title && (data.title.includes('المفرغ الصوتي') || data.title.includes('المفرغ'))) {
-          itemsToDelete.push(doc.id);
-        } else {
-          itms.push(data);
-        }
-      });
-
-      // Delete forbidden items from Firestore if found
-      if (itemsToDelete.length > 0) {
-        const batch = writeBatch(db);
-        itemsToDelete.forEach(id => {
-          batch.delete(doc(db, 'items', id));
-        });
-        batch.commit().catch(error => handleError(error, 'items-cleanup'));
-      }
-
-      if (itms.length === 0) {
-        // Initialize default items
-        const batch = writeBatch(db);
-        DEFAULT_ITEMS.forEach(item => {
-          batch.set(doc(db, 'items', item.id), { ...item, uid: userId });
-        });
-        batch.commit().catch(error => handleError(error, 'items-init'));
-      } else {
-        setItems(itms);
-        // Check for missing default items and add them
-        const batch = writeBatch(db);
-        let needsUpdate = false;
-
-        const missingItems = DEFAULT_ITEMS.filter(di => !itms.some(i => i.id === di.id));
-        if (missingItems.length > 0) {
-          missingItems.forEach(item => {
-            batch.set(doc(db, 'items', item.id), { ...item, uid: userId });
-          });
-          needsUpdate = true;
-        }
-
-        DEFAULT_ITEMS.forEach(di => {
-          const existing = itms.find(i => i.id === di.id);
-          if (existing && existing.color !== di.color) {
-            batch.update(doc(db, 'items', di.id), { color: di.color });
-            needsUpdate = true;
-          }
-        });
-
-        if (needsUpdate) {
-          batch.commit().catch(error => handleError(error, 'items-update'));
-        }
-      }
-    }, (error) => handleError(error, 'items'));
-
-    const unsubNotes = onSnapshot(query(collection(db, 'notes'), orderBy('createdAt', 'asc')), (snapshot) => {
-      const nts: Note[] = [];
-      snapshot.forEach(doc => nts.push(doc.data() as Note));
-      console.log('Notes loaded:', nts);
-      setNotes(nts);
-    }, (error) => handleError(error, 'notes'));
-
-    const unsubTasks = onSnapshot(query(collection(db, 'tasks'), orderBy('createdAt', 'asc')), (snapshot) => {
-      const tsks: Task[] = [];
-      snapshot.forEach(doc => tsks.push(doc.data() as Task));
-      console.log('Tasks loaded:', tsks);
-      setTasks(tsks);
-    }, (error) => handleError(error, 'tasks'));
-
-    const unsubSettings = onSnapshot(doc(db, 'settings', 'global'), (docSnap) => {
-      if (docSnap.exists() && docSnap.data()) {
-        setSettings({ ...settings, ...(docSnap.data() as AppSettings) });
-      } else {
-        setDoc(doc(db, 'settings', 'global'), settings).catch(error => handleError(error, 'settings/global-init'));
-      }
-      setIsLoading(false);
-    }, (error) => {
-      handleError(error, 'settings/global');
-      setIsLoading(false);
-    });
-
-    return () => {
-      unsubCategories();
-      unsubItems();
-      unsubNotes();
-      unsubTasks();
-      unsubSettings();
-    };
-  }, [isAuthReady, userId]);
-
   // Loading timeout for stability
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -498,14 +336,8 @@ export default function App() {
     return () => clearTimeout(timer);
   }, [isLoading]);
 
-  const updateSettings = async (newSettings: Partial<AppSettings>) => {
-    const updated = { ...settings, ...newSettings };
-    setSettings(updated);
-    try {
-      await setDoc(doc(db, 'settings', 'global'), updated);
-    } catch (error) {
-      handleFirestoreError(error, OperationType.WRITE, 'settings/global');
-    }
+  const updateSettings = (newSettings: Partial<AppSettings>) => {
+    setSettings(prev => ({ ...prev, ...newSettings }));
   };
 
   const allCarouselItems = useMemo(() => {
@@ -564,20 +396,20 @@ export default function App() {
       const win = window.open('', '_blank', 'noopener,noreferrer');
       try {
         const fileId = finalUrl.replace('storage://', '');
-        const fileRef = ref(storage, `files/${fileId}`);
-        const downloadUrl = await getDownloadURL(fileRef);
-        if (win) {
+        // For local storage, we store the file data directly in the item or a separate key
+        // Since we are moving to local, we assume the URL is already a data URL or blob URL
+        const downloadUrl = item.url.startsWith('data:') ? item.url : '';
+        
+        if (downloadUrl && win) {
           win.location.href = downloadUrl;
-        } else {
-          const fallbackWin = window.open(downloadUrl, '_blank', 'noopener,noreferrer');
-          if (!fallbackWin) {
-            window.location.href = downloadUrl;
-          }
+        } else if (win) {
+          win.close();
+          toast.error('الملف غير موجود محلياً');
         }
       } catch (err) {
-        console.error('Error loading file from Storage:', err);
+        console.error('Error loading file:', err);
         if (win) win.close();
-        toast.error('الملف غير موجود أو تم حذفه من السحابة');
+        toast.error('الملف غير موجود');
       }
     };
     openStorage();
@@ -590,17 +422,8 @@ export default function App() {
     });
   };
 
-  const toggleFavorite = async (id: string) => {
-    const item = items.find(i => i.id === id);
-    if (item) {
-      const updatedItem = { ...item, isFavorite: !item.isFavorite };
-      setItems(prev => prev.map(i => i.id === id ? updatedItem : i));
-      try {
-        await setDoc(doc(db, 'items', id), updatedItem);
-      } catch (error) {
-        handleFirestoreError(error, OperationType.WRITE, `items/${id}`);
-      }
-    }
+  const toggleFavorite = (id: string) => {
+    setItems(prev => prev.map(i => i.id === id ? { ...i, isFavorite: !i.isFavorite } : i));
   };
 
   const filteredItems = useMemo(() => {
@@ -646,28 +469,6 @@ export default function App() {
     <div className="min-h-screen flex flex-col pb-32 transition-all duration-500" style={{ background: currentTheme.background }}>
       {/* Toaster for notifications */}
       <Toaster position="top-center" richColors />
-
-      {/* Quota Exceeded Banner */}
-      <AnimatePresence>
-        {isQuotaExceeded && (
-          <motion.div 
-            initial={{ opacity: 0, y: -50 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -50 }}
-            className="fixed top-0 left-0 w-full z-50 bg-amber-600 text-white p-4 shadow-xl flex items-center justify-between"
-          >
-            <div className="flex items-center gap-3">
-              <span className="font-bold">تنبيه: تم تجاوز حصة الاستخدام (Quota Exceeded). سيتم استخدام البيانات المحلية الافتراضية. ستتم إعادة تعيين الحصة غداً.</span>
-            </div>
-            <button 
-              onClick={() => setIsQuotaExceeded(false)}
-              className="px-4 py-1.5 bg-white/20 hover:bg-white/30 rounded-lg font-bold transition-colors"
-            >
-              إغلاق
-            </button>
-          </motion.div>
-        )}
-      </AnimatePresence>
 
       {/* Header */}
       <header className="sticky top-0 z-30 bg-white/60 backdrop-blur-xl border-b border-white/20 px-6 py-4 flex items-center justify-between shadow-sm">
@@ -912,44 +713,6 @@ export default function App() {
             </div>
 
             <div className="space-y-8">
-              {/* Auth Section */}
-              <section className="bg-slate-50 p-6 rounded-3xl border border-slate-200">
-                <h3 className="text-lg font-bold mb-4 flex items-center gap-2">
-                  <User className="w-5 h-5 text-slate-600" />
-                  الحساب والمزامنة
-                </h3>
-                {auth.currentUser ? (
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      {auth.currentUser.photoURL && (
-                        <img src={auth.currentUser.photoURL} alt="" className="w-10 h-10 rounded-full" referrerPolicy="no-referrer" />
-                      )}
-                      <div>
-                        <p className="text-sm font-bold text-slate-800">{auth.currentUser.displayName}</p>
-                        <p className="text-xs text-slate-500">{auth.currentUser.email}</p>
-                      </div>
-                    </div>
-                    <button 
-                      onClick={() => signOut(auth)}
-                      className="px-4 py-2 bg-red-50 text-red-600 rounded-xl text-sm font-bold"
-                    >
-                      تسجيل الخروج
-                    </button>
-                  </div>
-                ) : (
-                  <div>
-                    <p className="text-sm text-slate-600 mb-4">قم بتسجيل الدخول لمزامنة بياناتك والوصول إلى ميزات الإدارة.</p>
-                    <button 
-                      onClick={() => signInWithPopup(auth, googleProvider)}
-                      className="w-full py-4 bg-white border-2 border-slate-100 rounded-2xl font-bold flex items-center justify-center gap-3 hover:bg-slate-50 transition-colors"
-                    >
-                      <img src="https://www.gstatic.com/firebase/explore/images/google-logo.svg" alt="" className="w-5 h-5" />
-                      تسجيل الدخول باستخدام Google
-                    </button>
-                  </div>
-                )}
-              </section>
-
               {/* Theme Selection */}
               <section className="bg-white/40 backdrop-blur-md p-4 rounded-3xl border border-white/20 shadow-sm">
                 <button 
@@ -1053,20 +816,16 @@ export default function App() {
                         className="flex-1 p-3 bg-slate-50 border rounded-xl"
                         value={item.text}
                         onChange={(e) => {
-                          setSettings(s => ({
-                            ...s,
-                            carouselItems: s.carouselItems.map(i => i.id === item.id ? { ...i, text: e.target.value } : i)
-                          }));
+                          const newItems = settings.carouselItems.map(i => i.id === item.id ? { ...i, text: e.target.value } : i);
+                          setSettings(s => ({ ...s, carouselItems: newItems }));
                         }}
                       />
                       <button 
                         onClick={() => {
-                          setSettings(s => ({
-                            ...s,
-                            carouselItems: s.carouselItems.filter(i => i.id !== item.id)
-                          }));
+                          const newItems = settings.carouselItems.filter(i => i.id !== item.id);
+                          setSettings(s => ({ ...s, carouselItems: newItems }));
                         }}
-                        className="p-3 bg-red-50 text-red-600 rounded-xl"
+                        className="p-3 text-red-500 bg-red-50 rounded-xl"
                       >
                         <Trash2 className="w-5 h-5" />
                       </button>
@@ -1074,14 +833,13 @@ export default function App() {
                   ))}
                   <button 
                     onClick={() => {
-                      setSettings(s => ({
-                        ...s,
-                        carouselItems: [...s.carouselItems, { id: Date.now().toString(), text: 'نص جديد' }]
-                      }));
+                      const newItem = { id: Date.now().toString(), text: '' };
+                      setSettings(s => ({ ...s, carouselItems: [...s.carouselItems, newItem] }));
                     }}
-                    className="w-full p-3 border-2 border-dashed border-slate-200 rounded-xl text-slate-400 font-bold"
+                    className="w-full py-3 bg-emerald-50 text-emerald-600 rounded-xl font-bold border border-emerald-100 flex items-center justify-center gap-2"
                   >
-                    + إضافة إعلان
+                    <Plus className="w-5 h-5" />
+                    إضافة إعلان جديد
                   </button>
                 </div>
               </section>
@@ -1103,7 +861,7 @@ export default function App() {
                       className="flex-1 p-2 bg-white border rounded-lg text-sm"
                     />
                     <button 
-                      onClick={async () => {
+                      onClick={() => {
                         const name = (document.getElementById('new-cat-name') as HTMLInputElement).value;
                         if (!name) return;
                         const catId = Date.now().toString();
@@ -1112,14 +870,11 @@ export default function App() {
                           name,
                           parentId: currentCategory,
                           color: VIBRANT_COLORS[Math.floor(Math.random() * VIBRANT_COLORS.length)],
-                          uid: 'default'
+                          uid: 'local'
                         };
-                        try {
-                          await setDoc(doc(db, 'categories', catId), newCat);
-                          (document.getElementById('new-cat-name') as HTMLInputElement).value = '';
-                        } catch (error) {
-                          handleFirestoreError(error, OperationType.WRITE, `categories/${catId}`);
-                        }
+                        setCategories(prev => [...prev, newCat]);
+                        (document.getElementById('new-cat-name') as HTMLInputElement).value = '';
+                        toast.success('تم إضافة القسم بنجاح');
                       }}
                       className="px-4 py-2 bg-emerald-600 text-white rounded-lg text-sm font-bold"
                     >
@@ -1160,15 +915,20 @@ export default function App() {
                       <input id="new-item-url" placeholder="الرابط (URL)..." className="w-full p-2 bg-white border rounded-lg text-sm" />
                     ) : (
                       <div className="flex gap-2">
-                        <input id="new-item-url" placeholder="مسار الملف المختار..." className="flex-1 p-2 bg-white border rounded-lg text-sm" />
+                        <input id="new-item-url" placeholder="مسار الملف المختار..." className="flex-1 p-2 bg-white border rounded-lg text-sm" readOnly />
                         <label className="px-4 py-2 bg-emerald-100 text-emerald-700 rounded-lg text-xs font-bold cursor-pointer hover:bg-emerald-200 transition-colors flex items-center">
                           <span>تصفح</span>
                           <input 
                             type="file" 
                             className="hidden" 
+                            accept="application/pdf"
                             onChange={(e) => {
                               const file = e.target.files?.[0];
                               if (file) {
+                                if (file.size > 2 * 1024 * 1024) {
+                                  toast.error('حجم الملف كبير جداً (الحد الأقصى 2 ميجابايت للتخزين المحلي)');
+                                  return;
+                                }
                                 setSelectedPdfFile(file);
                                 (document.getElementById('new-item-url') as HTMLInputElement).value = file.name;
                                 if (!(document.getElementById('new-item-title') as HTMLInputElement).value) {
@@ -1198,37 +958,43 @@ export default function App() {
                         const itemId = Date.now().toString();
 
                         if (newItemType === 'pdf' && selectedPdfFile) {
-                          try {
-                            const fileRef = ref(storage, `files/${itemId}`);
-                            await uploadBytes(fileRef, selectedPdfFile);
-                            url = `storage://${itemId}`;
-                          } catch (err) {
-                            console.error('Error saving file:', err);
-                            toast.error('حدث خطأ أثناء حفظ الملف');
-                            return;
-                          }
+                          const reader = new FileReader();
+                          reader.onload = (e) => {
+                            const base64 = e.target?.result as string;
+                            const newItem: ContentItem = {
+                              id: itemId,
+                              title,
+                              url: base64,
+                              type: newItemType,
+                              color: VIBRANT_COLORS[Math.floor(Math.random() * VIBRANT_COLORS.length)],
+                              categoryId: targetCategoryId,
+                              createdAt: Date.now(),
+                              isFavorite: false,
+                              uid: 'local'
+                            };
+                            setItems(prev => [...prev, newItem]);
+                            toast.success('تم إضافة الملف بنجاح');
+                          };
+                          reader.readAsDataURL(selectedPdfFile);
+                        } else {
+                          const newItem: ContentItem = {
+                            id: itemId,
+                            title,
+                            url,
+                            type: newItemType,
+                            color: VIBRANT_COLORS[Math.floor(Math.random() * VIBRANT_COLORS.length)],
+                            categoryId: targetCategoryId,
+                            createdAt: Date.now(),
+                            isFavorite: false,
+                            uid: 'local'
+                          };
+                          setItems(prev => [...prev, newItem]);
+                          toast.success('تم إضافة الرابط بنجاح');
                         }
-
-                        const newItem: ContentItem = {
-                          id: itemId,
-                          title,
-                          url,
-                          type: newItemType,
-                          color: VIBRANT_COLORS[Math.floor(Math.random() * VIBRANT_COLORS.length)],
-                          categoryId: targetCategoryId,
-                          createdAt: Date.now(),
-                          isFavorite: false,
-                          uid: 'default'
-                        };
                         
-                        try {
-                          await setDoc(doc(db, 'items', itemId), newItem);
-                          (document.getElementById('new-item-title') as HTMLInputElement).value = '';
-                          (document.getElementById('new-item-url') as HTMLInputElement).value = '';
-                          setSelectedPdfFile(null);
-                        } catch (error) {
-                          handleFirestoreError(error, OperationType.WRITE, `items/${itemId}`);
-                        }
+                        (document.getElementById('new-item-title') as HTMLInputElement).value = '';
+                        (document.getElementById('new-item-url') as HTMLInputElement).value = '';
+                        setSelectedPdfFile(null);
                       }}
                       className="w-full py-3 bg-emerald-600 text-white rounded-xl text-sm font-bold shadow-lg"
                     >
@@ -1248,21 +1014,10 @@ export default function App() {
                           <span className="font-bold text-slate-700">{cat.name} (قسم)</span>
                         </div>
                         <button 
-                          onClick={async () => {
-                            try {
-                              await deleteDoc(doc(db, 'categories', cat.id));
-                              // Also delete items in this category
-                              const itemsToDelete = items.filter(i => i.categoryId === cat.id);
-                              for (const item of itemsToDelete) {
-                                await deleteDoc(doc(db, 'items', item.id));
-                                if (item.url.startsWith('storage://')) {
-                                  const fileRef = ref(storage, `files/${item.url.replace('storage://', '')}`);
-                                  deleteObject(fileRef).catch(console.error);
-                                }
-                              }
-                            } catch (error) {
-                              handleFirestoreError(error, OperationType.DELETE, `categories/${cat.id}`);
-                            }
+                          onClick={() => {
+                            setCategories(prev => prev.filter(c => c.id !== cat.id));
+                            setItems(prev => prev.filter(i => i.categoryId !== cat.id));
+                            toast.success('تم حذف القسم ومحتوياته');
                           }}
                           className="p-2 text-red-500 hover:bg-red-50 rounded-lg"
                         >
@@ -1277,16 +1032,9 @@ export default function App() {
                           <span className="text-sm text-slate-700">{item.title}</span>
                         </div>
                         <button 
-                          onClick={async () => {
-                            try {
-                              await deleteDoc(doc(db, 'items', item.id));
-                              if (item.url.startsWith('storage://')) {
-                                const fileRef = ref(storage, `files/${item.url.replace('storage://', '')}`);
-                                deleteObject(fileRef).catch(console.error);
-                              }
-                            } catch (error) {
-                              handleFirestoreError(error, OperationType.DELETE, `items/${item.id}`);
-                            }
+                          onClick={() => {
+                            setItems(prev => prev.filter(i => i.id !== item.id));
+                            toast.success('تم حذف العنصر');
                           }}
                           className="p-2 text-red-500 hover:bg-red-50 rounded-lg"
                         >
@@ -1328,7 +1076,7 @@ export default function App() {
                   className="w-full h-40 bg-transparent border-none focus:ring-0 text-slate-700 font-medium resize-none"
                 />
                 <button 
-                  onClick={async () => {
+                  onClick={() => {
                     const content = (document.getElementById('note-content') as HTMLTextAreaElement).value;
                     if (!content) return;
                     const noteId = Date.now().toString();
@@ -1336,17 +1084,11 @@ export default function App() {
                       id: noteId,
                       content,
                       createdAt: Date.now(),
-                      uid: 'default'
+                      uid: 'local'
                     };
-                    try {
-                      console.log('Saving note:', newNote);
-                      await setDoc(doc(db, 'notes', noteId), newNote);
-                      (document.getElementById('note-content') as HTMLTextAreaElement).value = '';
-                      toast.success('تم حفظ الملاحظة');
-                    } catch (error) {
-                      console.error('Error saving note:', error);
-                      handleFirestoreError(error, OperationType.WRITE, `notes/${noteId}`);
-                    }
+                    setNotes(prev => [newNote, ...prev]);
+                    (document.getElementById('note-content') as HTMLTextAreaElement).value = '';
+                    toast.success('تم حفظ الملاحظة');
                   }}
                   className="w-full mt-4 py-3 bg-amber-600 text-white rounded-xl font-bold shadow-lg flex items-center justify-center gap-2"
                 >
@@ -1362,12 +1104,9 @@ export default function App() {
                     <div className="flex justify-between items-center text-[10px] text-slate-400 font-bold">
                       <span>{new Date(note.createdAt).toLocaleString('ar-EG')}</span>
                       <button 
-                        onClick={async () => {
-                          try {
-                            await deleteDoc(doc(db, 'notes', note.id));
-                          } catch (error) {
-                            handleFirestoreError(error, OperationType.DELETE, `notes/${note.id}`);
-                          }
+                        onClick={() => {
+                          setNotes(prev => prev.filter(n => n.id !== note.id));
+                          toast.success('تم حذف الملاحظة');
                         }} 
                         className="text-red-400"
                       >
@@ -1433,7 +1172,7 @@ export default function App() {
                   />
                 </div>
                 <button 
-                  onClick={async () => {
+                  onClick={() => {
                     const title = (document.getElementById('task-title') as HTMLInputElement).value;
                     const date = (document.getElementById('task-date') as HTMLInputElement).value;
                     if (!title || !date) return;
@@ -1445,18 +1184,12 @@ export default function App() {
                       status: 'none',
                       showInCarousel: false,
                       createdAt: Date.now(),
-                      uid: 'default'
+                      uid: 'local'
                     };
-                    try {
-                      console.log('Saving task:', newTask);
-                      await setDoc(doc(db, 'tasks', taskId), newTask);
-                      (document.getElementById('task-title') as HTMLInputElement).value = '';
-                      (document.getElementById('task-date') as HTMLInputElement).value = '';
-                      toast.success('تم حفظ المهمة');
-                    } catch (error) {
-                      console.error('Error saving task:', error);
-                      handleFirestoreError(error, OperationType.WRITE, `tasks/${taskId}`);
-                    }
+                    setTasks(prev => [...prev, newTask]);
+                    (document.getElementById('task-title') as HTMLInputElement).value = '';
+                    (document.getElementById('task-date') as HTMLInputElement).value = '';
+                    toast.success('تم حفظ المهمة');
                   }}
                   className="w-full py-3 bg-indigo-600 text-white rounded-xl font-bold shadow-lg"
                 >
@@ -1478,12 +1211,8 @@ export default function App() {
                       </div>
                       <div className="flex items-center gap-2">
                         <button 
-                          onClick={async () => {
-                            try {
-                              await setDoc(doc(db, 'tasks', task.id), { ...task, showInCarousel: !task.showInCarousel });
-                            } catch (error) {
-                              handleFirestoreError(error, OperationType.WRITE, `tasks/${task.id}`);
-                            }
+                          onClick={() => {
+                            setTasks(prev => prev.map(t => t.id === task.id ? { ...t, showInCarousel: !t.showInCarousel } : t));
                           }}
                           className={`p-2 rounded-lg transition-colors ${task.showInCarousel ? 'bg-amber-100 text-amber-600' : 'bg-slate-50 text-slate-400'}`}
                           title="إظهار في الشريط المتحرك"
@@ -1491,12 +1220,9 @@ export default function App() {
                           <Share2 className="w-4 h-4" />
                         </button>
                         <button 
-                          onClick={async () => {
-                            try {
-                              await deleteDoc(doc(db, 'tasks', task.id));
-                            } catch (error) {
-                              handleFirestoreError(error, OperationType.DELETE, `tasks/${task.id}`);
-                            }
+                          onClick={() => {
+                            setTasks(prev => prev.filter(t => t.id !== task.id));
+                            toast.success('تم حذف المهمة');
                           }} 
                           className="p-2 text-red-400"
                         >
@@ -1507,18 +1233,14 @@ export default function App() {
                     
                     <div className="flex items-center justify-between pt-2 border-t border-slate-50">
                       <button 
-                        onClick={async () => {
+                        onClick={() => {
                           const nextStatus: Record<TaskStatus, TaskStatus> = {
                             'none': 'in-progress',
                             'in-progress': 'completed',
                             'completed': 'not-completed',
                             'not-completed': 'none'
                           };
-                          try {
-                            await setDoc(doc(db, 'tasks', task.id), { ...task, status: nextStatus[task.status] });
-                          } catch (error) {
-                            handleFirestoreError(error, OperationType.WRITE, `tasks/${task.id}`);
-                          }
+                          setTasks(prev => prev.map(t => t.id === task.id ? { ...t, status: nextStatus[t.status] } : t));
                         }}
                         className={`px-4 py-2 rounded-xl text-xs font-bold transition-all border-2 ${
                           task.status === 'in-progress' ? 'bg-blue-50 border-blue-200 text-blue-600' :
