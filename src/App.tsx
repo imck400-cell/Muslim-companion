@@ -37,7 +37,7 @@ import { Toaster, toast } from 'sonner';
 import { LOGIN_PHRASE, WELCOME_MESSAGE, FOOTER_INFO, CONTACT_PHONE, WHATSAPP_LINK, DEFAULT_CATEGORIES, DEFAULT_ITEMS, THEMES, VIBRANT_COLORS } from './constants';
 import { Category, ContentItem, AppSettings, CarouselItem, Theme, Note, Task, TaskStatus } from './types';
 import { db, auth, storage, handleFirestoreError, OperationType, testFirestoreConnection, googleProvider } from './firebase';
-import { signInWithPopup, signOut } from 'firebase/auth';
+import { signInWithPopup, signOut, onAuthStateChanged } from 'firebase/auth';
 
 import { collection, doc, setDoc, deleteDoc, onSnapshot, query, getDocs, writeBatch, updateDoc, where, orderBy } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
@@ -266,7 +266,8 @@ export default function App() {
 
   const currentTheme = useMemo(() => THEMES.find(t => t.id === settings.themeId) || THEMES[0], [settings.themeId]);
 
-  const [isAuthReady, setIsAuthReady] = useState(true);
+  const [userId, setUserId] = useState<string | null>(null);
+  const [isAuthReady, setIsAuthReady] = useState(false);
   const [isQuotaExceeded, setIsQuotaExceeded] = useState(false);
   const [currentCategory, setCurrentCategory] = useState<string | null>(null);
   const [isThemesCollapsed, setIsThemesCollapsed] = useState(true);
@@ -307,11 +308,28 @@ export default function App() {
   }, []);
 
   useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      setUserId(user ? user.uid : null);
+      setIsAuthReady(true);
+    });
+    return unsubscribe;
+  }, []);
+
+  useEffect(() => {
+    if (!isAuthReady) return;
+
+    if (!userId) {
+      console.log("User not authenticated. Using fallback data.");
+      setCategories(DEFAULT_CATEGORIES);
+      setItems(DEFAULT_ITEMS);
+      setIsLoading(false);
+      return;
+    }
+
     const handleError = (error: any, path: string) => {
       const errInfo = handleFirestoreError(error, OperationType.GET, path);
       if (errInfo && errInfo.error.includes('Quota exceeded')) {
         setIsQuotaExceeded(true);
-        // Fallback to defaults if not already loaded
         setCategories(prev => prev.length === 0 ? DEFAULT_CATEGORIES : prev);
         setItems(prev => prev.length === 0 ? DEFAULT_ITEMS : prev);
         setIsLoading(false);
@@ -326,14 +344,6 @@ export default function App() {
       return;
     }
 
-    if (!db || !db.app) {
-      console.warn('Firestore is not initialized. Using fallback data.');
-      setCategories(DEFAULT_CATEGORIES);
-      setItems(DEFAULT_ITEMS);
-      setIsLoading(false);
-      return;
-    }
-
     const unsubCategories = onSnapshot(collection(db, 'categories'), (snapshot) => {
       const cats: Category[] = [];
       snapshot.forEach(doc => cats.push(doc.data() as Category));
@@ -341,7 +351,7 @@ export default function App() {
         // Initialize default categories
         const batch = writeBatch(db);
         DEFAULT_CATEGORIES.forEach(cat => {
-          batch.set(doc(db, 'categories', cat.id), { ...cat, uid: 'default' });
+          batch.set(doc(db, 'categories', cat.id), { ...cat, uid: userId });
         });
         batch.commit().catch(error => handleError(error, 'categories-init'));
       } else {
@@ -353,7 +363,7 @@ export default function App() {
         const missingCats = DEFAULT_CATEGORIES.filter(dc => !cats.some(c => c.id === dc.id));
         if (missingCats.length > 0) {
           missingCats.forEach(cat => {
-            batch.set(doc(db, 'categories', cat.id), { ...cat, uid: 'default' });
+            batch.set(doc(db, 'categories', cat.id), { ...cat, uid: userId });
           });
           needsUpdate = true;
         }
@@ -411,7 +421,7 @@ export default function App() {
         // Initialize default items
         const batch = writeBatch(db);
         DEFAULT_ITEMS.forEach(item => {
-          batch.set(doc(db, 'items', item.id), { ...item, uid: 'default' });
+          batch.set(doc(db, 'items', item.id), { ...item, uid: userId });
         });
         batch.commit().catch(error => handleError(error, 'items-init'));
       } else {
@@ -423,7 +433,7 @@ export default function App() {
         const missingItems = DEFAULT_ITEMS.filter(di => !itms.some(i => i.id === di.id));
         if (missingItems.length > 0) {
           missingItems.forEach(item => {
-            batch.set(doc(db, 'items', item.id), { ...item, uid: 'default' });
+            batch.set(doc(db, 'items', item.id), { ...item, uid: userId });
           });
           needsUpdate = true;
         }
@@ -475,7 +485,7 @@ export default function App() {
       unsubTasks();
       unsubSettings();
     };
-  }, [isAuthReady]);
+  }, [isAuthReady, userId]);
 
   // Loading timeout for stability
   useEffect(() => {
